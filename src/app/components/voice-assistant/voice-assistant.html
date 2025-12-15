@@ -1,0 +1,48 @@
+<div class="voice-assistant-container">
+  <!-- Bouton microphone flottant -->
+  <button
+    class="microphone-btn"
+    [class.listening]="isListening"
+    (click)="toggleListening()"
+    [attr.aria-label]="isListening ? 'Arrêter l\'écoute' : 'Démarrer l\'écoute vocale'"
+  >
+    <span class="icon">
+      {{ isListening ? '⏹️' : '🎤' }}
+    </span>
+  </button>
+
+  <!-- Panneau d'aide qui apparaît quand on clique sur le bouton info -->
+  <div class="help-panel" *ngIf="showHelp">
+    <div class="help-header">
+      <h3>Commandes Vocales</h3>
+      <button class="close-btn" (click)="toggleHelp()">×</button>
+    </div>
+
+    <div class="help-content">
+      <p class="help-intro">Parlez en français ou en wolof pour naviguer :</p>
+
+      <div class="command-list">
+        <div class="command-item" *ngFor="let cmd of exampleCommands; let i = index">
+          <div class="command-example">
+            <strong>"{{ cmd.fr }}"</strong>
+          </div>
+          <div class="command-translation">
+            {{ cmd.wolof }} → {{ cmd.action }}
+          </div>
+        </div>
+      </div>
+
+      <div class="help-tip">
+        <p>💡 <strong>Astuce :</strong> Parlez clairement et dans un environnement calme</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Affichage de la commande en cours -->
+  <div class="command-display" *ngIf="voiceCommand">
+    <div class="command-text">
+      <small>Commande détectée :</small>
+      <p>"{{ voiceCommand }}"</p>
+    </div>
+  </div>
+</div>

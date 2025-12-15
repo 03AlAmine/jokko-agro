@@ -1,0 +1,186 @@
+<div class="messages-container">
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="messages-layout">
+      <!-- Conversations Panel -->
+      <div class="conversations-panel">
+        <div class="panel-header">
+          <h2>Messages</h2>
+          <div class="header-stats">
+            <span class="stat">
+              <span class="stat-icon">💬</span>
+              {{ getActiveConversationsCount() }} conversations
+            </span>
+            <span class="stat">
+              <span class="stat-icon">🔔</span>
+              {{ getUnreadCount() }} non lus
+            </span>
+          </div>
+        </div>
+
+        <!-- Search -->
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            placeholder="Rechercher une conversation..."
+            class="search-input"
+          >
+        </div>
+
+        <!-- Conversations List -->
+        <div class="conversations-list">
+          <div *ngFor="let conversation of getFilteredConversations()"
+               class="conversation-item"
+               [class.active]="selectedConversation?.id === conversation.id"
+               [class.archived]="conversation.status === 'archived'"
+               (click)="selectConversation(conversation)">
+
+            <div class="conversation-avatar">
+              {{ conversation.buyerAvatar }}
+              <span class="online-indicator" *ngIf="conversation.status === 'active'"></span>
+            </div>
+
+            <div class="conversation-content">
+              <div class="conversation-header">
+                <div class="conversation-name">{{ conversation.buyerName }}</div>
+                <div class="conversation-time">{{ getConversationTime(conversation) }}</div>
+              </div>
+
+              <div class="conversation-preview">
+                <div class="preview-text">
+                  {{ conversation.lastMessage }}
+                </div>
+                <div class="conversation-meta">
+                  <span *ngIf="conversation.product" class="product-tag">
+                    {{ conversation.product }}
+                  </span>
+                  <span *ngIf="conversation.unreadCount > 0" class="unread-badge">
+                    {{ conversation.unreadCount }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="getFilteredConversations().length === 0" class="empty-conversations">
+            <div class="empty-icon">💬</div>
+            <p>Aucune conversation trouvée</p>
+          </div>
+        </div>
+
+        <!-- Quick Responses -->
+        <div class="quick-responses">
+          <h3>📝 Réponses rapides</h3>
+          <div class="responses-list">
+            <button class="response-btn" (click)="sendQuickResponse('Bonjour ! Comment puis-je vous aider ?')">
+              Bonjour réponse
+            </button>
+            <button class="response-btn" (click)="sendQuickResponse('Le produit est disponible en stock.')">
+              Disponible
+            </button>
+            <button class="response-btn" (click)="sendQuickResponse('Le prix est de 1500 FCFA/kg.')">
+              Prix
+            </button>
+            <button class="response-btn" (click)="sendQuickResponse('Livraison possible dans toute la ville.')">
+              Livraison
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Panel -->
+      <div class="chat-panel" *ngIf="selectedConversation; else selectConversationPrompt">
+        <!-- Chat Header -->
+        <div class="chat-header">
+          <div class="chat-user">
+            <div class="user-avatar">{{ selectedConversation.buyerAvatar }}</div>
+            <div class="user-info">
+              <h3>{{ selectedConversation.buyerName }}</h3>
+              <p *ngIf="selectedConversation.product">{{ selectedConversation.product }}</p>
+            </div>
+          </div>
+
+          <div class="chat-actions">
+            <button class="chat-action-btn" title="Archiver" (click)="archiveConversation(selectedConversation.id)">
+              📁
+            </button>
+            <button class="chat-action-btn" title="Supprimer" (click)="deleteConversation(selectedConversation.id)">
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages Container -->
+        <div class="messages-container-sms" #messagesContainer>
+          <div class="messages-list">
+            <div *ngFor="let message of messages"
+                 class="message-wrapper"
+                 [class.sent]="message.senderId === 'producer'">
+
+              <div class="message">
+                <div class="message-content">
+                  {{ message.content }}
+                </div>
+                <div class="message-time">
+                  {{ getMessageTime(message) }}
+                  <span *ngIf="message.senderId === 'producer'" class="message-status">
+                    {{ message.read ? '✓✓' : '✓' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Message Input -->
+        <div class="message-input-area">
+          <div class="input-wrapper">
+            <input
+              type="text"
+              [(ngModel)]="newMessage"
+              (keyup.enter)="sendMessage()"
+              placeholder="Tapez votre message..."
+              class="message-input"
+            >
+            <button class="send-btn" (click)="sendMessage()" [disabled]="!newMessage.trim()">
+              <span class="send-icon">📤</span>
+            </button>
+          </div>
+
+          <div class="input-actions">
+            <button class="action-btn" title="Ajouter une image">
+              📷
+            </button>
+            <button class="action-btn" title="Ajouter un produit">
+              📦
+            </button>
+            <button class="action-btn" title="Enregistrer vocal">
+              🎤
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Select Conversation Prompt -->
+      <ng-template #selectConversationPrompt>
+        <div class="select-conversation-prompt">
+          <div class="prompt-icon">💬</div>
+          <h2>Sélectionnez une conversation</h2>
+          <p>Choisissez une conversation dans la liste pour commencer à discuter</p>
+          <div class="prompt-tips">
+            <p>💡 <strong>Conseils :</strong></p>
+            <ul>
+              <li>Répondez rapidement pour augmenter la satisfaction client</li>
+              <li>Utilisez les réponses rapides pour gagner du temps</li>
+              <li>Proposez toujours des alternatives si un produit est épuisé</li>
+              <li>Soyez poli et professionnel dans toutes vos réponses</li>
+            </ul>
+          </div>
+        </div>
+      </ng-template>
+    </div>
+  </main>
+
+</div>

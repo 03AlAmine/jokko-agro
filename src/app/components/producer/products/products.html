@@ -1,0 +1,248 @@
+<div class="products-container">
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- En-tête -->
+    <div class="page-header">
+      <div class="header-left">
+        <h1><span class="header-icon">📦</span> Mes produits</h1>
+        <p class="subtitle">Gérez tous vos produits en vente</p>
+      </div>
+      <div class="header-right">
+        <button routerLink="/producer/add-product" class="add-product-btn">
+          <span class="btn-icon">➕</span> Nouveau produit
+        </button>
+      </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="quick-stats">
+      <div class="stat-card">
+        <div class="stat-icon total">📦</div>
+        <div class="stat-info">
+          <h3>{{ getTotalProductsCount() }}</h3>
+          <p>Produits au total</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon available">✅</div>
+        <div class="stat-info">
+          <h3>{{ getAvailableProductsCount() }}</h3>
+          <p>Produits disponibles</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon value">💰</div>
+        <div class="stat-info">
+          <h3>{{ getTotalValueSum().toLocaleString() }} FCFA</h3>
+          <p>Valeur totale en stock</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barre de filtres -->
+    <div class="filters-section">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="applyFilters()"
+          placeholder="Rechercher un produit..."
+          class="search-input"
+        >
+      </div>
+
+      <div class="filter-controls">
+        <div class="filter-group">
+          <label>Catégorie:</label>
+          <select [(ngModel)]="selectedCategory" (ngModelChange)="applyFilters()" title="categorie">
+            <option *ngFor="let cat of categories" [value]="cat.id">
+              {{ cat.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Statut:</label>
+          <select [(ngModel)]="selectedStatus" (ngModelChange)="applyFilters()" title="statut">
+            <option *ngFor="let status of statuses" [value]="status.id">
+              {{ status.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Trier par:</label>
+          <select [(ngModel)]="sortBy" (ngModelChange)="applyFilters()" title="trie">
+            <option *ngFor="let option of sortOptions" [value]="option.id">
+              {{ option.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste des produits -->
+    <div class="products-section">
+      <div class="section-header">
+        <h2>Produits ({{ filteredProducts.length }})</h2>
+        <div class="actions">
+          <button class="action-btn export">
+            📄 Exporter
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="isLoading" class="loading">
+        <div class="spinner"></div>
+        <p>Chargement des produits...</p>
+      </div>
+
+      <div *ngIf="!isLoading && filteredProducts.length === 0" class="empty-state">
+        <div class="empty-icon">📦</div>
+        <h3>Aucun produit trouvé</h3>
+        <p>Aucun produit ne correspond à vos critères de recherche.</p>
+        <button routerLink="/producer/add-product" class="btn-primary">
+          ➕ Ajouter votre premier produit
+        </button>
+      </div>
+
+      <div class="products-grid">
+        <div *ngFor="let product of filteredProducts" class="product-card">
+          <!-- En-tête de la carte -->
+          <div class="product-header">
+            <div class="product-image">
+              {{ product.image }}
+              <span *ngIf="product.certified" class="certified-badge">✔</span>
+            </div>
+            <div class="product-meta">
+              <span class="category-badge">
+                {{ getCategoryName(product.category) }}
+              </span>
+              <span [class]="'status-badge ' + getStatusClass(product.status)">
+                {{ getStatusText(product.status) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Corps de la carte -->
+          <div class="product-body">
+            <h3 class="product-name">{{ product.name }}</h3>
+
+            <div class="product-details">
+              <div class="detail-row">
+                <span class="detail-label">Prix unitaire:</span>
+                <span class="detail-value">{{ product.price.toLocaleString() }} FCFA</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Quantité:</span>
+                <span class="detail-value">
+                  {{ product.quantity }} {{ product.unit }}
+                </span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Valeur totale:</span>
+                <span class="detail-value highlight">
+                  {{ getTotalValue(product).toLocaleString() }} FCFA
+                </span>
+              </div>
+            </div>
+
+            <div class="product-stats">
+              <div class="stat">
+                <span class="stat-icon">💰</span>
+                <span class="stat-value">{{ product.sales }} ventes</span>
+              </div>
+              <div class="stat">
+                <span class="stat-icon">⭐</span>
+                <span class="stat-value">{{ product.rating }}/5</span>
+              </div>
+              <div class="stat">
+                <span class="stat-icon">📅</span>
+                <span class="stat-value">
+                  {{ product.lastUpdated | date:'dd/MM/yy' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="product-actions">
+            <button class="action-btn edit" (click)="editProduct(product.id)">
+              ✏️ Modifier
+            </button>
+            <button class="action-btn view">
+              👁️ Voir
+            </button>
+            <div class="dropdown">
+              <button class="action-btn more">
+                ⋯
+              </button>
+              <div class="dropdown-menu">
+                <button (click)="duplicateProduct(product.id)" class="dropdown-item">
+                  📋 Dupliquer
+                </button>
+                <button *ngIf="product.status === 'available'"
+                        (click)="updateStatus(product.id, 'sold_out')"
+                        class="dropdown-item">
+                  ⏸️ Marquer épuisé
+                </button>
+                <button *ngIf="product.status === 'sold_out'"
+                        (click)="updateStatus(product.id, 'available')"
+                        class="dropdown-item">
+                  ✅ Réactiver
+                </button>
+                <div class="dropdown-divider"></div>
+                <button (click)="deleteProduct(product.id)" class="dropdown-item delete">
+                  🗑️ Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button class="page-btn prev" disabled>
+          ← Précédent
+        </button>
+        <div class="page-numbers">
+          <span class="page-number active">1</span>
+          <span class="page-number">2</span>
+          <span class="page-number">3</span>
+          <span class="dots">...</span>
+          <span class="page-number">10</span>
+        </div>
+        <button class="page-btn next">
+          Suivant →
+        </button>
+      </div>
+    </div>
+
+    <!-- Conseils -->
+    <div class="tips-section">
+      <div class="tip-card">
+        <h3>💡 Conseils de gestion</h3>
+        <ul>
+          <li>Mettez à jour régulièrement les quantités en stock</li>
+          <li>Utilisez des photos de qualité pour vos produits</li>
+          <li>Activez les certifications pour augmenter la confiance</li>
+          <li>Surveillez les ventes pour réapprovisionner à temps</li>
+        </ul>
+      </div>
+      <div class="tip-card">
+        <h3>📊 Statistiques</h3>
+        <p>Vos produits les plus vendus :</p>
+        <ol>
+          <li>Tomates Bio - 45 ventes</li>
+          <li>Oignons Rouges - 60 ventes</li>
+          <li>Carottes Fraîches - 28 ventes</li>
+        </ol>
+      </div>
+    </div>
+  </main>
+
+
+</div>

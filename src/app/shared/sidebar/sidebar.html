@@ -1,0 +1,55 @@
+<aside class="sidebar" [class.collapsed]="isCollapsed">
+  <!-- Header du sidebar -->
+  <div class="sidebar-header">
+    <div class="user-info">
+      <div class="avatar" [style.backgroundColor]="getRoleColor()">
+        {{ getInitials() }}
+      </div>
+      <div class="user-details" *ngIf="!isCollapsed">
+        <h3>{{ userData?.fullName || 'Utilisateur' }}</h3>
+        <p class="role-badge" [style.backgroundColor]="getRoleColor() + '20'"
+           [style.color]="getRoleColor()">
+          {{ getRoleLabel() }}
+        </p>
+      </div>
+    </div>
+
+    <button class="collapse-btn" (click)="toggleCollapse()" title="Réduire/Afficher">
+      {{ isCollapsed ? '→' : '←' }}
+    </button>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="sidebar-nav">
+    <a *ngFor="let item of config.items"
+       [routerLink]="item.route"
+       routerLinkActive="active"
+       [routerLinkActiveOptions]="{ exact: false }"
+       class="nav-item"
+       [title]="item.label"
+       [class.disabled]="item.disabled">
+
+      <span class="nav-icon">{{ item.icon }}</span>
+
+      <span class="nav-label" *ngIf="!isCollapsed">
+        {{ item.label }}
+      </span>
+
+      <span *ngIf="item.badge && item.badge > 0 && !isCollapsed" class="badge">
+        {{ item.badge > 99 ? '99+' : item.badge }}
+      </span>
+    </a>
+  </nav>
+
+  <!-- Footer du sidebar -->
+  <div class="sidebar-footer">
+    <button class="logout-btn" (click)="onLogout()" *ngIf="!isCollapsed" title="Déconnexion">
+      <span class="nav-icon">🚪</span>
+      <span class="nav-label">Déconnexion</span>
+    </button>
+
+    <button class="logout-btn collapsed" (click)="onLogout()" *ngIf="isCollapsed" title="Déconnexion">
+      <span class="nav-icon">🚪</span>
+    </button>
+  </div>
+</aside>

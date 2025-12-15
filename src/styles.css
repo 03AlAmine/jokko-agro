@@ -1,1 +1,7 @@
 /* You can add global styles to this file, and also import other style files */
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  min-height: 100vh;
+}

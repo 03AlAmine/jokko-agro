@@ -1,0 +1,215 @@
+<div class="dashboard-container">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="user-info">
+        <div class="avatar">
+          {{ userData?.fullName?.charAt(0) || 'A' }}
+        </div>
+        <div class="user-details">
+          <h3>{{ userData?.fullName || 'Acheteur' }}</h3>
+          <p class="role-badge">🛒 Acheteur</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a routerLink="/buyer/dashboard" class="nav-item active">
+        <span class="nav-icon">📊</span>
+        Tableau de bord
+      </a>
+      <a routerLink="/buyer/market" class="nav-item">
+        <span class="nav-icon">🛍️</span>
+        Marché
+      </a>
+      <a routerLink="/buyer/scan" class="nav-item">
+        <span class="nav-icon">📱</span>
+        Scanner QR
+      </a>
+      <a routerLink="/buyer/cart" class="nav-item">
+        <span class="nav-icon">🛒</span>
+        Panier
+        <span class="badge">2</span>
+      </a>
+      <a routerLink="/buyer/purchases" class="nav-item">
+        <span class="nav-icon">📋</span>
+        Historique
+      </a>
+      <a routerLink="/buyer/verifications" class="nav-item">
+        <span class="nav-icon">✅</span>
+        Vérifications
+      </a>
+      <a routerLink="/buyer/messages" class="nav-item">
+        <span class="nav-icon">✉️</span>
+        Messages
+      </a>
+      <a routerLink="/buyer/favorites" class="nav-item">
+        <span class="nav-icon">❤️</span>
+        Favoris
+      </a>
+      <a routerLink="/buyer/settings" class="nav-item">
+        <span class="nav-icon">⚙️</span>
+        Paramètres
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="logout-btn" (click)="logout()">
+        <span class="nav-icon">🚪</span>
+        Déconnexion
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Header -->
+    <header class="main-header">
+      <div class="header-left">
+        <h1>Bienvenue sur le marché</h1>
+        <p class="welcome-text">Découvrez des produits frais et certifiés près de chez vous</p>
+      </div>
+      <div class="header-right">
+        <div class="search-box">
+          <input type="text" placeholder="Rechercher un produit...">
+          <button class="search-btn">🔍</button>
+        </div>
+        <div class="quick-actions">
+          <button routerLink="/buyer/scan" class="quick-btn">
+            📱 Scanner QR
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div
+        *ngFor="let stat of stats"
+        class="stat-card"
+        [routerLink]="stat.link"
+        [ngStyle]="{borderLeftColor: stat.color}"
+      >
+        <div class="stat-icon" [ngStyle]="{backgroundColor: stat.color + '20'}">
+          {{ stat.icon }}
+        </div>
+        <div class="stat-info">
+          <h3>{{ stat.value }}</h3>
+          <p>{{ stat.label }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Categories -->
+    <div class="dashboard-section">
+      <div class="section-header">
+        <h2>Catégories populaires</h2>
+        <a routerLink="/buyer/market" class="view-all">Tout voir →</a>
+      </div>
+
+      <div class="categories-grid">
+        <div *ngFor="let category of categories" class="category-card">
+          <div class="category-icon">{{ category.icon }}</div>
+          <h4>{{ category.name }}</h4>
+          <p>{{ category.count }} produits</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Purchases -->
+    <div class="dashboard-section">
+      <div class="section-header">
+        <h2>Achats récents</h2>
+        <a routerLink="/buyer/purchases" class="view-all">Voir tout →</a>
+      </div>
+
+      <div class="table-container">
+        <table class="purchases-table">
+          <thead>
+            <tr>
+              <th>Commande</th>
+              <th>Produit</th>
+              <th>Producteur</th>
+              <th>Date</th>
+              <th>Montant</th>
+              <th>Statut</th>
+              <th>Certifié</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let purchase of recentPurchases">
+              <td>#{{ purchase.id }}</td>
+              <td class="product-cell">{{ purchase.product }}</td>
+              <td>{{ purchase.producer }}</td>
+              <td>{{ purchase.date }}</td>
+              <td class="amount">{{ formatPrice(purchase.amount) }}</td>
+              <td>
+                <span class="status-badge" [ngStyle]="{backgroundColor: getStatusColor(purchase.status)}">
+                  {{ getStatusText(purchase.status) }}
+                </span>
+              </td>
+              <td>
+                <span *ngIf="purchase.certified" class="certified-badge">✅ Certifié</span>
+                <span *ngIf="!purchase.certified" class="not-certified">Non certifié</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recommended Products -->
+    <div class="dashboard-section">
+      <div class="section-header">
+        <h2>Produits recommandés</h2>
+        <p class="section-subtitle">Basé sur vos achats précédents</p>
+      </div>
+
+      <div class="products-grid">
+        <div *ngFor="let product of recommendedProducts" class="product-card">
+          <div class="product-image">
+            {{ product.image }}
+            <span *ngIf="product.certified" class="certified-tag">✔ Certifié</span>
+          </div>
+          <div class="product-info">
+            <h4>{{ product.name }}</h4>
+            <p class="producer">{{ product.producer }}</p>
+            <div class="product-meta">
+              <span class="price">{{ formatPrice(product.price) }}</span>
+              <span class="rating">⭐ {{ product.rating }}</span>
+            </div>
+            <button class="add-to-cart">Ajouter au panier</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tips Section -->
+    <div class="tips-section">
+      <div class="tip-card">
+        <h3>💡 Pourquoi choisir des produits certifiés ?</h3>
+        <ul>
+          <li>✅ Traçabilité garantie</li>
+          <li>✅ Qualité vérifiée</li>
+          <li>✅ Soutien aux producteurs locaux</li>
+          <li>✅ Fraîcheur assurée</li>
+        </ul>
+      </div>
+      <div class="tip-card">
+        <h3>📱 Comment scanner un QR code ?</h3>
+        <ol>
+          <li>Ouvrez l'application</li>
+          <li>Cliquez sur "Scanner QR"</li>
+          <li>Pointez sur le code du produit</li>
+          <li>Vérifiez les informations</li>
+        </ol>
+        <button routerLink="/buyer/scan" class="scan-btn">
+          Essayer maintenant
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Assistant vocal -->
+  <app-voice-assistant />
+</div>

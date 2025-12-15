@@ -1,0 +1,278 @@
+<div class="reputation-container">
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- En-tête -->
+    <div class="page-header">
+      <div class="header-left">
+        <h1><span class="header-icon">⭐</span> Votre réputation</h1>
+        <p class="subtitle">Gérez vos avis clients et votre note globale</p>
+      </div>
+      <div class="header-right">
+        <button class="export-btn" (click)="exportReviews()">
+          <span class="btn-icon">📄</span> Exporter les avis
+        </button>
+      </div>
+    </div>
+
+    <!-- Statistiques principales -->
+    <div class="main-stats">
+      <div class="main-stat-card">
+        <div class="stat-content">
+          <div class="rating-display">
+            <div class="average-rating">
+              <span class="rating-value">{{ stats.averageRating }}</span>
+              <span class="rating-max">/5</span>
+            </div>
+            <div class="stars-large">
+              <span *ngFor="let star of getStars(Math.round(stats.averageRating))"
+                    class="star"
+                    [class.filled]="star === 1">★</span>
+            </div>
+          </div>
+          <div class="stat-label">
+            Note moyenne
+            <span class="reputation-level" [style.color]="getReputationColor()">
+              ({{ getReputationLevel() }})
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-stat-card">
+        <div class="stat-content">
+          <div class="stat-number">{{ stats.totalReviews }}</div>
+          <div class="stat-label">Avis clients</div>
+        </div>
+      </div>
+
+      <div class="main-stat-card">
+        <div class="stat-content">
+          <div class="stat-number">{{ stats.responseRate }}%</div>
+          <div class="stat-label">Taux de réponse</div>
+        </div>
+      </div>
+
+      <div class="main-stat-card">
+        <div class="stat-content">
+          <div class="stat-number">{{ stats.helpfulRate }}%</div>
+          <div class="stat-label">Avis utiles</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Détails des notes -->
+    <div class="rating-details-section">
+      <div class="rating-breakdown">
+        <h3>📊 Répartition des notes</h3>
+        <div class="rating-bars">
+          <div *ngFor="let stat of ratingStats" class="rating-bar">
+            <div class="bar-label">
+              <span class="stars-small">
+                <span *ngFor="let star of getStars(stat.stars)" class="star filled">★</span>
+              </span>
+            </div>
+            <div class="bar-container">
+              <div class="bar-fill" [style.width]="stat.percentage + '%'"></div>
+            </div>
+            <div class="bar-count">{{ stat.count }}</div>
+            <div class="bar-percentage">{{ stat.percentage.toFixed(0) }}%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rating-tips">
+        <h3>💡 Améliorer votre réputation</h3>
+        <ul>
+          <li>Répondez rapidement aux avis (sous 24h)</li>
+          <li>Remerciez pour les avis positifs</li>
+          <li>Proposez des solutions pour les problèmes</li>
+          <li>Encouragez les clients à laisser des avis</li>
+          <li>Maintenez une qualité constante</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Barre de filtres -->
+    <div class="filters-section">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="applyFilters()"
+          placeholder="Rechercher un avis, produit ou client..."
+          class="search-input"
+        >
+      </div>
+
+      <div class="filter-controls">
+        <div class="filter-group">
+          <label>Filtrer par note:</label>
+          <select [(ngModel)]="selectedRating" (ngModelChange)="applyFilters()" title="filter">
+            <option *ngFor="let option of ratingOptions" [value]="option.id">
+              {{ option.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Trier par:</label>
+          <select [(ngModel)]="selectedSort" (ngModelChange)="applyFilters()" title="trie">
+            <option *ngFor="let option of sortOptions" [value]="option.id">
+              {{ option.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste des avis -->
+    <div class="reviews-section">
+      <div class="section-header">
+        <h2>Avis clients ({{ filteredReviews.length }})</h2>
+        <div class="summary">
+          <span class="summary-item">
+            <span class="summary-label">Moyenne:</span>
+            <span class="summary-value">{{ stats.averageRating }}/5</span>
+          </span>
+          <span class="summary-item">
+            <span class="summary-label">Réponses:</span>
+            <span class="summary-value">{{ getResponseRatePercentage().toFixed(0) }}%</span>
+          </span>
+        </div>
+      </div>
+
+      <div *ngIf="filteredReviews.length === 0" class="empty-state">
+        <div class="empty-icon">⭐</div>
+        <h3>Aucun avis trouvé</h3>
+        <p>Aucun avis ne correspond à vos critères de recherche.</p>
+      </div>
+
+      <div class="reviews-list">
+        <div *ngFor="let review of filteredReviews" class="review-card">
+          <div class="review-header">
+            <div class="reviewer-info">
+              <div class="reviewer-avatar">{{ review.buyerAvatar }}</div>
+              <div class="reviewer-details">
+                <div class="reviewer-name">{{ review.buyerName }}</div>
+                <div class="review-date">{{ getTimeAgo(review.date) }}</div>
+              </div>
+            </div>
+
+            <div class="review-rating">
+              <div class="stars">
+                <span *ngFor="let star of getStars(review.rating)" class="star" [class.filled]="star === 1">★</span>
+              </div>
+              <div class="rating-text">{{ review.rating }}/5</div>
+            </div>
+          </div>
+
+          <div class="review-body">
+            <div class="product-info">
+              <span class="product-tag">{{ review.product }}</span>
+              <span *ngIf="review.verifiedPurchase" class="verified-badge">✅ Achat vérifié</span>
+            </div>
+
+            <div class="review-comment">
+              {{ review.comment }}
+            </div>
+
+            <div class="review-actions">
+              <button class="action-btn helpful" (click)="markAsHelpful(review.id)">
+                <span class="btn-icon">👍</span>
+                Utile ({{ review.helpful }})
+              </button>
+
+              <div class="action-buttons">
+                <button *ngIf="!review.response"
+                        class="action-btn respond"
+                        (click)="addResponse(review.id)">
+                  ✏️ Répondre
+                </button>
+                <button *ngIf="review.response"
+                        class="action-btn edit-response"
+                        (click)="editResponse(review.id)">
+                  ✏️ Modifier la réponse
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Réponse du producteur -->
+          <div *ngIf="review.response" class="review-response">
+            <div class="response-header">
+              <div class="response-label">Votre réponse</div>
+              <div class="response-date">{{ getTimeAgo(review.response.date) }}</div>
+            </div>
+            <div class="response-content">
+              {{ review.response.content }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button class="page-btn prev" disabled>
+          ← Précédent
+        </button>
+        <div class="page-numbers">
+          <span class="page-number active">1</span>
+          <span class="page-number">2</span>
+          <span class="page-number">3</span>
+        </div>
+        <button class="page-btn next">
+          Suivant →
+        </button>
+      </div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-section">
+      <div class="insight-card">
+        <h3>📈 Impact de la réputation</h3>
+        <p>Une bonne réputation peut augmenter vos ventes de :</p>
+        <ul>
+          <li>+30% pour les produits avec notes ≥ 4.5</li>
+          <li>+15% pour les réponses rapides aux avis</li>
+          <li>+25% pour les certificats blockchain vérifiés</li>
+        </ul>
+      </div>
+
+      <div class="insight-card">
+        <h3>🎯 Objectifs</h3>
+        <div class="goals">
+          <div class="goal">
+            <div class="goal-label">Note moyenne cible</div>
+            <div class="goal-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width]="(stats.averageRating / 5 * 100) + '%'"></div>
+              </div>
+              <div class="goal-value">{{ stats.averageRating }}/5</div>
+            </div>
+          </div>
+          <div class="goal">
+            <div class="goal-label">Taux de réponse cible</div>
+            <div class="goal-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width]="stats.responseRate + '%'"></div>
+              </div>
+              <div class="goal-value">{{ stats.responseRate }}%</div>
+            </div>
+          </div>
+          <div class="goal">
+            <div class="goal-label">Avis mensuels cible</div>
+            <div class="goal-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width]="'60%'"></div>
+              </div>
+              <div class="goal-value">12/20</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</div>

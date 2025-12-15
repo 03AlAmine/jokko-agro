@@ -1,0 +1,72 @@
+<div class="role-selection-container">
+  <div class="selection-card">
+    <div class="selection-header">
+      <h1>Choisissez votre rôle</h1>
+      <p>Comment voulez-vous utiliser Jokko Agro ?</p>
+    </div>
+
+    <div class="role-options">
+      <!-- Option Producteur -->
+      <div
+        class="role-card"
+        [class.selected]="selectedRole === 'producer'"
+        (click)="selectRole('producer')"
+      >
+        <div class="role-icon">👨‍🌾</div>
+        <h3>Producteur</h3>
+        <ul class="role-features">
+          <li>✔ Vendre vos produits</li>
+          <li>✔ Certifier sur blockchain</li>
+          <li>✔ Gérer vos stocks</li>
+          <li>✔ Consulter vos ventes</li>
+          <li>✔ Construire votre réputation</li>
+        </ul>
+        <div class="role-description">
+          <p>Idéal pour les agriculteurs et producteurs qui veulent vendre leurs produits en ligne</p>
+        </div>
+      </div>
+
+      <!-- Option Acheteur -->
+      <div
+        class="role-card"
+        [class.selected]="selectedRole === 'buyer'"
+        (click)="selectRole('buyer')"
+      >
+        <div class="role-icon">🛒</div>
+        <h3>Acheteur</h3>
+        <ul class="role-features">
+          <li>✔ Acheter des produits certifiés</li>
+          <li>✔ Scanner les QR codes</li>
+          <li>✔ Vérifier l'authenticité</li>
+          <li>✔ Contacter les producteurs</li>
+          <li>✔ Noter les achats</li>
+        </ul>
+        <div class="role-description">
+          <p>Idéal pour les acheteurs qui veulent des produits authentiques et traçables</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="selection-actions">
+      <p class="selected-info" *ngIf="selectedRole">
+        Rôle sélectionné :
+        <strong>{{ selectedRole === 'producer' ? 'Producteur' : 'Acheteur' }}</strong>
+      </p>
+      <button
+        class="confirm-btn"
+        (click)="confirmSelection()"
+        [disabled]="!selectedRole"
+      >
+        Confirmer la sélection
+      </button>
+      <a routerLink="/" class="back-link">← Retour à l'accueil</a>
+    </div>
+
+    <div class="voice-hint">
+      <p>🎤 <strong>Commande vocale :</strong> Dites "Producteur" ou "Acheteur" pour sélectionner</p>
+    </div>
+  </div>
+
+  <!-- Assistant vocal -->
+  <app-voice-assistant />
+</div>

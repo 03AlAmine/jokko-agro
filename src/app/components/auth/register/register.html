@@ -1,0 +1,141 @@
+<div class="register-container">
+  <div class="register-card">
+    <div class="register-header">
+      <h1>Créer un compte</h1>
+      <p>Rejoignez la communauté Jokko Agro</p>
+    </div>
+
+    <!-- Message d'erreur -->
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <form (ngSubmit)="onSubmit()" class="register-form" #registerForm="ngForm">
+      <div class="form-group">
+        <label for="fullName">Nom complet *</label>
+        <input
+          type="text"
+          id="fullName"
+          [(ngModel)]="userData.fullName"
+          name="fullName"
+          required
+          placeholder="Votre nom complet"
+          #fullName="ngModel"
+        >
+        <div *ngIf="fullName.invalid && fullName.touched" class="error-text">
+          Le nom complet est obligatoire
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="phone">Numéro de téléphone *</label>
+        <input
+          type="tel"
+          id="phone"
+          [(ngModel)]="userData.phone"
+          name="phone"
+          required
+          placeholder="77 123 45 67"
+          pattern="^(77|78|70|76)[0-9]{7}$"
+          #phone="ngModel"
+        >
+        <div *ngIf="phone.invalid && phone.touched" class="error-text">
+          Numéro de téléphone invalide (format: 77 123 45 67)
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email *</label>
+        <input
+          type="email"
+          id="email"
+          [(ngModel)]="userData.email"
+          name="email"
+          required
+          placeholder="exemple@email.com"
+          pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
+          #email="ngModel"
+        >
+        <div *ngIf="email.invalid && email.touched" class="error-text">
+          Email invalide
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Mot de passe *</label>
+        <input
+          type="password"
+          id="password"
+          [(ngModel)]="userData.password"
+          name="password"
+          required
+          minlength="6"
+          placeholder="••••••••"
+          #password="ngModel"
+        >
+        <div *ngIf="password.invalid && password.touched" class="error-text">
+          Le mot de passe doit contenir au moins 6 caractères
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirmer le mot de passe *</label>
+        <input
+          type="password"
+          id="confirmPassword"
+          [(ngModel)]="userData.confirmPassword"
+          name="confirmPassword"
+          required
+          placeholder="••••••••"
+          #confirmPassword="ngModel"
+        >
+        <div *ngIf="confirmPassword.invalid && confirmPassword.touched" class="error-text">
+          Veuillez confirmer votre mot de passe
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Je suis : *</label>
+        <div class="role-options">
+          <label class="role-option">
+            <input
+              type="radio"
+              name="role"
+              value="producer"
+              [(ngModel)]="userData.role"
+              required
+              #role="ngModel"
+            >
+            <span>👨‍🌾 Producteur</span>
+          </label>
+          <label class="role-option">
+            <input
+              type="radio"
+              name="role"
+              value="buyer"
+              [(ngModel)]="userData.role"
+            >
+            <span>🛒 Acheteur</span>
+          </label>
+        </div>
+        <div *ngIf="role.invalid && role.touched" class="error-text">
+          Veuillez sélectionner un rôle
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        class="btn-register"
+        [disabled]="isLoading || registerForm.invalid"
+      >
+        <span *ngIf="!isLoading">Créer mon compte</span>
+        <span *ngIf="isLoading">Création en cours...</span>
+      </button>
+    </form>
+
+    <div class="register-footer">
+      <p>Déjà un compte ? <a routerLink="/login">Se connecter</a></p>
+      <p><a routerLink="/">← Retour à l'accueil</a></p>
+    </div>
+  </div>
+</div>
