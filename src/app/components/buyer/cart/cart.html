@@ -1,0 +1,373 @@
+<div class="cart-container">
+  <!-- En-tête -->
+  <div class="cart-header">
+    <div class="header-left">
+      <h1><span class="header-icon">🛒</span> Mon Panier</h1>
+      <p class="subtitle">Vérifiez vos articles et passez à la caisse</p>
+    </div>
+    <div class="header-right">
+      <button class="continue-btn" (click)="continueShopping()">
+        ← Continuer mes achats
+      </button>
+    </div>
+  </div>
+
+  <!-- Message panier vide -->
+  <div *ngIf="cartItems.length === 0" class="empty-cart">
+    <div class="empty-icon">🛒</div>
+    <h2>Votre panier est vide</h2>
+    <p>Ajoutez des produits frais depuis le marché</p>
+    <button class="btn-primary" routerLink="/buyer/market">
+      🛍️ Découvrir le marché
+    </button>
+  </div>
+
+  <!-- Contenu du panier -->
+  <div *ngIf="cartItems.length > 0" class="cart-content">
+    <div class="cart-layout">
+      <!-- Section gauche : Articles -->
+      <div class="cart-items-section">
+        <!-- En-tête des articles -->
+        <div class="items-header">
+          <div class="select-all">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="areAllItemsSelected()"
+                (change)="selectAllItems()"
+              />
+              <span class="checkbox-custom"></span>
+              <span class="checkbox-text"
+                >Tout sélectionner ({{ getSelectedItemsCount() }})</span
+              >
+            </label>
+          </div>
+          <div class="items-count">
+            {{ cartItems.length }} article{{ cartItems.length > 1 ? 's' : '' }}
+          </div>
+        </div>
+
+        <!-- Liste des articles -->
+        <div class="items-list">
+          <div *ngFor="let item of cartItems" class="cart-item">
+            <div class="item-select">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  [checked]="item.selected"
+                  (change)="toggleSelectItem(item.id)"
+                />
+                <span class="checkbox-custom"></span>
+              </label>
+            </div>
+
+            <div class="item-image">
+              {{ item.image }}
+              <span *ngIf="item.certified" class="certified-badge">✔</span>
+            </div>
+
+            <div class="item-details">
+              <div class="item-header">
+                <h3 class="item-name">{{ item.name }}</h3>
+                <button
+                  class="remove-btn"
+                  (click)="removeItem(item.id)"
+                  title="Retirer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div class="item-producer">Producteur: {{ item.producer }}</div>
+
+              <div class="item-badges">
+                <span *ngIf="item.certified" class="badge certified"
+                  >Certifié</span
+                >
+                <span *ngIf="item.organic" class="badge organic">Bio</span>
+                <span class="badge delivery">
+                  {{ item.deliveryType === 'pickup' ? 'À retirer' : 'Livraison'
+                  }}
+                </span>
+              </div>
+
+              <div class="item-notes">
+                <input
+                  type="text"
+                  [value]="item.notes || ''"
+                  (input)="updateItemNotes(item.id, $any($event.target).value)"
+                  placeholder="Ajouter une note pour le producteur..."
+                  class="notes-input"
+                />
+              </div>
+            </div>
+
+            <div class="item-quantity">
+              <div class="quantity-controls">
+                <button
+                  class="qty-btn"
+                  (click)="updateQuantity(item.id, -1)"
+                  [disabled]="item.quantity <= 1"
+                >
+                  −
+                </button>
+                <span class="qty-value"
+                  >{{ item.quantity }} {{ item.unit }}</span
+                >
+                <button
+                  class="qty-btn"
+                  (click)="updateQuantity(item.id, 1)"
+                  [disabled]="item.quantity >= item.maxQuantity"
+                >
+                  +
+                </button>
+              </div>
+              <div class="qty-max">Max: {{ item.maxQuantity }}</div>
+            </div>
+
+            <div class="item-price">
+              <div class="price-main">
+                {{ formatPrice(item.price * item.quantity) }}
+              </div>
+              <div class="price-unit">
+                {{ formatPrice(item.price) }} / {{ item.unit }}
+              </div>
+              <div *ngIf="getItemDeliveryFee(item) > 0" class="price-delivery">
+                + {{ formatPrice(getItemDeliveryFee(item)) }} livraison
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section droite : Récapitulatif -->
+      <div class="cart-summary-section">
+        <!-- Récapitulatif de commande -->
+        <div class="summary-card">
+          <h3>Récapitulatif de commande</h3>
+
+          <div class="summary-details">
+            <div class="summary-row">
+              <span
+                >Sous-total ({{ getSelectedItemsCount() }} article{{
+                getSelectedItemsCount() > 1 ? 's' : '' }})</span
+              >
+              <span>{{ formatPrice(getSubtotal()) }}</span>
+            </div>
+
+            <div class="summary-row">
+              <span>Frais de livraison</span>
+              <span>{{ formatPrice(getDeliveryFee()) }}</span>
+            </div>
+
+            <div class="summary-row">
+              <span>Frais de paiement</span>
+              <span>{{ formatPrice(getPaymentFee()) }}</span>
+            </div>
+
+            <!-- Coupon -->
+            <div class="coupon-section">
+              <div *ngIf="!appliedCoupon" class="coupon-input">
+                <input
+                  type="text"
+                  [(ngModel)]="couponCode"
+                  placeholder="Code promo"
+                  class="coupon-field"
+                />
+                <button class="coupon-btn" (click)="applyCoupon()">
+                  Appliquer
+                </button>
+              </div>
+
+              <div *ngIf="appliedCoupon" class="coupon-applied">
+                <div class="coupon-info">
+                  <span class="coupon-code">{{ appliedCoupon.code }}</span>
+                  <span class="coupon-discount">
+                    -{{ appliedCoupon.discount }}{{ appliedCoupon.type ===
+                    'percentage' ? '%' : ' FCFA' }}
+                  </span>
+                </div>
+                <button class="coupon-remove" (click)="removeCoupon()">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div *ngIf="appliedCoupon" class="summary-row discount">
+              <span>Réduction coupon</span>
+              <span>-{{ formatPrice(getCouponDiscount()) }}</span>
+            </div>
+          </div>
+
+          <div class="summary-total">
+            <span>Total</span>
+            <span class="total-amount">{{ formatPrice(getTotal()) }}</span>
+          </div>
+        </div>
+
+        <!-- Options de livraison -->
+        <div class="delivery-card">
+          <h3>📦 Options de livraison</h3>
+
+          <div class="delivery-options">
+            <div
+              *ngFor="let option of deliveryOptions"
+              class="delivery-option"
+              [class.selected]="selectedDeliveryOption === option.id"
+              (click)="selectedDeliveryOption = option.id"
+            >
+              <div class="option-header">
+                <div class="option-name">{{ option.name }}</div>
+                <div class="option-price">{{ formatPrice(option.price) }}</div>
+              </div>
+
+              <div class="option-details">
+                <div class="option-time">⏱️ {{ option.time }}</div>
+                <p class="option-description">{{ option.description }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Adresse de livraison -->
+          <div
+            *ngIf="selectedDeliveryOption.includes('delivery')"
+            class="delivery-address"
+          >
+            <h4>Adresse de livraison</h4>
+
+            <div class="address-form">
+              <div class="form-group">
+                <input
+                  type="text"
+                  [(ngModel)]="deliveryAddress.street"
+                  placeholder="Adresse complète"
+                  class="form-input"
+                />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <select [(ngModel)]="deliveryAddress.city" class="form-input">
+                    <option value="Dakar">Dakar</option>
+                    <option value="Thiès">Thiès</option>
+                    <option value="Saint-Louis">Saint-Louis</option>
+                    <option value="Ziguinchor">Ziguinchor</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <input
+                    type="tel"
+                    [(ngModel)]="deliveryAddress.phone"
+                    placeholder="Téléphone"
+                    class="form-input"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <textarea
+                  [(ngModel)]="deliveryAddress.instructions"
+                  placeholder="Instructions de livraison (porte, étage, etc.)"
+                  class="form-textarea"
+                  rows="2"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Méthodes de paiement -->
+        <div class="payment-card">
+          <h3>💳 Méthode de paiement</h3>
+
+          <div class="payment-options">
+            <div
+              *ngFor="let method of paymentMethods"
+              class="payment-option"
+              [class.selected]="selectedPaymentMethod === method.id"
+              (click)="selectedPaymentMethod = method.id"
+            >
+              <div class="payment-icon">{{ method.icon }}</div>
+              <div class="payment-info">
+                <div class="payment-name">{{ method.name }}</div>
+                <div class="payment-description">{{ method.description }}</div>
+              </div>
+              <div class="payment-fee">
+                {{ method.fee > 0 ? '+' + formatPrice(method.fee) : 'Gratuit' }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bouton de commande -->
+        <div class="checkout-card">
+          <div class="checkout-summary">
+            <div class="checkout-total">
+              <span>Total à payer</span>
+              <span class="amount">{{ formatPrice(getTotal()) }}</span>
+            </div>
+            <p class="checkout-note">
+              Inclut les frais de livraison et de paiement
+            </p>
+          </div>
+
+          <button
+            class="checkout-btn"
+            (click)="proceedToCheckout()"
+            [disabled]="!canCheckout() || isCheckingOut"
+            [class.loading]="isCheckingOut"
+          >
+            <span *ngIf="!isCheckingOut" class="btn-content">
+              <span class="btn-icon">✅</span>
+              Commander maintenant
+            </span>
+
+            <span *ngIf="isCheckingOut" class="btn-content">
+              <span class="spinner"></span>
+              Traitement en cours...
+            </span>
+          </button>
+
+          <p class="secure-payment">
+            🔒 Paiement sécurisé • Garantie blockchain
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conseils et informations -->
+    <div class="cart-tips">
+      <div class="tip-card">
+        <h4>💡 Pourquoi acheter chez nous ?</h4>
+        <ul>
+          <li>✅ Produits certifiés blockchain</li>
+          <li>✅ Producteurs vérifiés</li>
+          <li>✅ Paiements sécurisés</li>
+          <li>✅ Livraison garantie</li>
+        </ul>
+      </div>
+
+      <div class="tip-card">
+        <h4>🛡️ Garanties incluses</h4>
+        <ul>
+          <li>Authenticité vérifiée par QR code</li>
+          <li>Traçabilité complète du produit</li>
+          <li>Remboursement sous 48h si problème</li>
+          <li>Support client 7j/7</li>
+        </ul>
+      </div>
+
+      <div class="tip-card">
+        <h4>📱 Acheter en toute confiance</h4>
+        <p>
+          Scannez les QR codes pour vérifier l'authenticité de chaque produit
+          avant l'achat.
+        </p>
+        <button routerLink="/buyer/scan" class="scan-btn">
+          📱 Tester le scanner
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

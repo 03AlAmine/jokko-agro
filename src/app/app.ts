@@ -5,6 +5,7 @@ import { SidebarComponent, SidebarConfig } from './shared/sidebar/sidebar';
 import { VoiceAssistantComponent } from './components/voice-assistant/voice-assistant';
 import { AuthService } from './services/auth.service';
 import { filter } from 'rxjs/operators';
+import { FirebaseService } from './services/firebase.service';
 
 @Component({
   selector: 'app-root',
@@ -25,26 +26,38 @@ export class App implements OnInit {
 
   constructor(
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private firebaseService: FirebaseService // Ajouter
   ) {
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
-    ).subscribe((event: any) => {
-      this.updateUIState(event.url);
+    ).subscribe(async (event: any) => {
+      await this.updateUIState(event.url);
     });
   }
 
   async ngOnInit() {
     // Attendre l'initialisation complète
     await this.waitForInitialization();
+
+    // Vérifier et rediriger si nécessaire
+    await this.checkAndRedirect();
+
     this.updateUIState(this.router.url);
   }
 
   private async waitForInitialization(): Promise<void> {
-    // Attendre que l'authentification soit initialisée
     return new Promise((resolve) => {
       const checkInitialization = () => {
-        if (!this.authService.isInitializing()) {
+        const firebaseUser = this.firebaseService.getCurrentAuthUser();
+        const isLoading = this.firebaseService.isLoading;
+
+        console.log('App - waitForInitialization:', {
+          firebaseUser: firebaseUser?.email,
+          isLoading
+        });
+
+        if (!isLoading) {
           this.isLoading = false;
           resolve();
         } else {
@@ -55,9 +68,31 @@ export class App implements OnInit {
     });
   }
 
+  private async checkAndRedirect(): Promise<void> {
+    const currentUrl = this.router.url;
+    const firebaseUser = this.firebaseService.getCurrentAuthUser();
+
+    console.log('App - checkAndRedirect:', {
+      currentUrl,
+      firebaseUser: firebaseUser?.email
+    });
+
+    // Si utilisateur connecté et sur page login/register, rediriger
+    if (firebaseUser && ['/login', '/register', '/'].includes(currentUrl)) {
+      const role = this.authService.getUserRole();
+      if (role === 'producer') {
+        this.router.navigate(['/producer/dashboard']);
+      } else if (role === 'buyer') {
+        this.router.navigate(['/buyer/dashboard']);
+      } else {
+        this.router.navigate(['/select-role']);
+      }
+    }
+  }
+
   private updateUIState(url: string) {
     // Mettre à jour le chargement
-    this.isLoading = this.authService.isInitializing();
+    this.isLoading = this.firebaseService.isLoading;
 
     // Déterminer si on doit montrer le sidebar
     this.showSidebar = !this.noSidebarRoutes.some(route => url === route || url.startsWith(route + '/'));
@@ -72,6 +107,13 @@ export class App implements OnInit {
   }
 
   private setupSidebarConfig() {
+    const firebaseUser = this.firebaseService.getCurrentAuthUser();
+
+    if (!firebaseUser) {
+      this.sidebarConfig = null;
+      return;
+    }
+
     const role = this.authService.getUserRole();
 
     if (role === 'producer') {

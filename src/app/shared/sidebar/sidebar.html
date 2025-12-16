@@ -35,14 +35,22 @@
         {{ item.label }}
       </span>
 
-      <span *ngIf="item.badge && item.badge > 0 && !isCollapsed" class="badge">
-        {{ item.badge > 99 ? '99+' : item.badge }}
+      <span *ngIf="getItemBadge(item) && getItemBadge(item)! > 0" class="badge">
+        {{ getItemBadge(item)! > 99 ? '99+' : getItemBadge(item) }}
       </span>
     </a>
   </nav>
 
   <!-- Footer du sidebar -->
   <div class="sidebar-footer">
+    <!-- Indicateur de panier en version réduite -->
+    <a *ngIf="isCollapsed && config.type === 'buyer' && cartItemCount > 0"
+       routerLink="/buyer/cart"
+       class="cart-mini-indicator">
+      <span class="nav-icon">🛒</span>
+      <span class="mini-badge">{{ cartItemCount }}</span>
+    </a>
+
     <button class="logout-btn" (click)="onLogout()" *ngIf="!isCollapsed" title="Déconnexion">
       <span class="nav-icon">🚪</span>
       <span class="nav-label">Déconnexion</span>

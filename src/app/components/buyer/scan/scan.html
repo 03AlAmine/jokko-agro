@@ -1,0 +1,227 @@
+<div class="scan-container">
+  <!-- En-tête -->
+  <div class="scan-header">
+    <h1><span class="header-icon">📱</span> Scanner QR Code</h1>
+    <p class="subtitle">Vérifiez l'authenticité de vos produits avec la blockchain</p>
+  </div>
+
+  <!-- Scanner Section -->
+  <div class="scanner-section">
+    <div class="scanner-card">
+      <div class="scanner-header">
+        <h2>Scanner un produit</h2>
+        <p>Scannez le QR code sur l'emballage pour vérifier l'authenticité</p>
+      </div>
+
+      <!-- Zone du scanner -->
+      <div class="scanner-area" *ngIf="!scannedProduct">
+        <!-- Vue caméra -->
+        <div class="camera-view" *ngIf="isScanning">
+          <video #videoElement class="camera-feed" playsinline></video>
+          <div class="scanner-overlay">
+            <div class="scan-frame">
+              <div class="corner top-left"></div>
+              <div class="corner top-right"></div>
+              <div class="corner bottom-left"></div>
+              <div class="corner bottom-right"></div>
+              <div class="scan-line"></div>
+            </div>
+            <p class="scan-instruction">Placez le QR code dans le cadre</p>
+          </div>
+        </div>
+
+        <!-- État initial ou erreur -->
+        <div class="scanner-placeholder" *ngIf="!isScanning">
+          <div class="placeholder-icon">📱</div>
+          <h3>Scanner de QR Code</h3>
+          <p *ngIf="!cameraError">
+            Cliquez sur "Démarrer le scanner" pour vérifier un produit
+          </p>
+          <p *ngIf="cameraError" class="error-message">
+            {{ cameraError }}
+          </p>
+
+          <div class="scanner-actions">
+            <button class="btn-primary" (click)="startScanner()" [disabled]="cameraError">
+              <span class="btn-icon">📷</span>
+              Démarrer le scanner
+            </button>
+
+            <button class="btn-secondary" (click)="simulateQRScan()">
+              <span class="btn-icon">🔍</span>
+              Simuler un scan
+            </button>
+
+            <button class="btn-secondary" (click)="simulateFraudScan()">
+              <span class="btn-icon">⚠️</span>
+              Tester détection fraude
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contrôles du scanner -->
+      <div class="scanner-controls" *ngIf="isScanning">
+        <button class="btn-stop" (click)="stopScanner()">
+          <span class="btn-icon">⏹️</span>
+          Arrêter le scanner
+        </button>
+      </div>
+
+      <!-- Résultats du scan -->
+      <div class="scan-results" *ngIf="scannedProduct">
+        <div class="results-header">
+          <h3>Résultats du scan</h3>
+          <span class="verification-badge"
+                [style.backgroundColor]="getVerificationColor() + '20'"
+                [style.color]="getVerificationColor()">
+            {{ getVerificationIcon() }} {{ getVerificationText() }}
+          </span>
+        </div>
+
+        <div class="product-info">
+          <div class="product-header">
+            <div class="product-icon">📦</div>
+            <div>
+              <h4>{{ scannedProduct.name }}</h4>
+              <p class="producer">Producteur: {{ scannedProduct.producer }}</p>
+            </div>
+          </div>
+
+          <div class="certification-details">
+            <div class="detail-row">
+              <span class="detail-label">Hash de certification:</span>
+              <div class="detail-value">
+                <code>{{ scannedProduct.certificationHash }}</code>
+                <button class="copy-btn" (click)="copyToClipboard(scannedProduct.certificationHash)" title="Copier">
+                  📋
+                </button>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <span class="detail-label">Date de certification:</span>
+              <span class="detail-value">{{ formatDate(scannedProduct.certificationDate) }}</span>
+            </div>
+
+            <div class="detail-row">
+              <span class="detail-label">Date de récolte:</span>
+              <span class="detail-value">{{ formatDate(scannedProduct.harvestDate) }}</span>
+            </div>
+
+            <div class="detail-row">
+              <span class="detail-label">Lieu de production:</span>
+              <span class="detail-value">{{ scannedProduct.location }}</span>
+            </div>
+          </div>
+
+          <!-- Historique de traçabilité -->
+          <div class="traceability-history">
+            <h4>📜 Historique de traçabilité</h4>
+            <div class="history-timeline">
+              <div *ngFor="let event of scannedProduct.history; let i = index" class="timeline-event">
+                <div class="event-marker"></div>
+                <div class="event-content">
+                  <div class="event-date">{{ formatDate(event.date) }}</div>
+                  <div class="event-action">{{ event.action }}</div>
+                  <div class="event-location">{{ event.location }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="results-actions">
+            <button class="btn-secondary" (click)="scannedProduct = null">
+              <span class="btn-icon">🔙</span>
+              Scanner un autre
+            </button>
+            <button class="btn-primary" (click)="viewProductDetails()">
+              <span class="btn-icon">👁️</span>
+              Voir détails du produit
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions-card">
+      <h3>💡 Comment scanner ?</h3>
+      <ol class="instructions-list">
+        <li>Localisez le QR code sur l'emballage du produit</li>
+        <li>Placez le code dans le cadre du scanner</li>
+        <li>Attendez la vérification blockchain</li>
+        <li>Consultez les détails de certification</li>
+      </ol>
+
+      <div class="benefits">
+        <h4>✅ Avantages de la vérification</h4>
+        <ul>
+          <li>Authenticité garantie</li>
+          <li>Traçabilité complète</li>
+          <li>Protection contre les fraudes</li>
+          <li>Confiance accrue</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historique des scans -->
+  <div class="history-section" *ngIf="scanHistory.length > 0">
+    <div class="history-header">
+      <h2>Historique des scans</h2>
+      <button class="btn-secondary" (click)="clearHistory()">
+        ✕ Effacer l'historique
+      </button>
+    </div>
+
+    <div class="history-list">
+      <div *ngFor="let item of scanHistory" class="history-item">
+        <div class="item-icon">📦</div>
+        <div class="item-info">
+          <div class="item-header">
+            <h4>{{ item.name }}</h4>
+            <span class="item-status"
+                  [style.color]="item.fraudDetected ? '#f44336' : '#4caf50'">
+              {{ item.fraudDetected ? '❌ Fraude' : '✅ Valide' }}
+            </span>
+          </div>
+          <p class="item-details">
+            {{ item.producer }} • {{ formatDate(item.certificationDate) }}
+          </p>
+        </div>
+        <button class="item-action" (click)="scannedProduct = item">
+          Voir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistiques
+  <div class="stats-section">
+    <div class="stat-card">
+      <div class="stat-icon">🔍</div>
+      <div class="stat-info">
+        <h3>{{ scanHistory.length }}</h3>
+        <p>Produits scannés</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-info">
+        <h3>{{ scanHistory.filter(p => p.verified && !p.fraudDetected).length }}</h3>
+        <p>Certificats valides</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon">❌</div>
+      <div class="stat-info">
+        <h3>{{ scanHistory.filter(p => p.fraudDetected).length }}</h3>
+        <p>Fraudes détectées</p>
+      </div>
+    </div>
+  </div>-->
+</div>

@@ -1,45 +1,44 @@
 <div class="messages-container">
-  <!-- Main Content -->
   <main class="main-content">
     <div class="messages-layout">
-      <!-- Conversations Panel -->
+      <!-- Panel des conversations -->
       <div class="conversations-panel">
         <div class="panel-header">
-          <h2>Messages</h2>
+          <h2>📨 Messages clients</h2>
           <div class="header-stats">
             <span class="stat">
               <span class="stat-icon">💬</span>
               {{ getActiveConversationsCount() }} conversations
             </span>
-            <span class="stat">
+            <span *ngIf="getUnreadCount() > 0" class="stat unread">
               <span class="stat-icon">🔔</span>
               {{ getUnreadCount() }} non lus
             </span>
           </div>
         </div>
 
-        <!-- Search -->
+        <!-- Barre de recherche -->
         <div class="search-box">
           <span class="search-icon">🔍</span>
           <input
             type="text"
             [(ngModel)]="searchQuery"
-            placeholder="Rechercher une conversation..."
+            placeholder="Rechercher un client..."
             class="search-input"
           >
         </div>
 
-        <!-- Conversations List -->
+        <!-- Liste des conversations -->
         <div class="conversations-list">
-          <div *ngFor="let conversation of getFilteredConversations()"
+          <div *ngFor="let conversation of conversations"
                class="conversation-item"
                [class.active]="selectedConversation?.id === conversation.id"
-               [class.archived]="conversation.status === 'archived'"
+               [class.unread]="conversation.unreadCount > 0"
                (click)="selectConversation(conversation)">
 
             <div class="conversation-avatar">
               {{ conversation.buyerAvatar }}
-              <span class="online-indicator" *ngIf="conversation.status === 'active'"></span>
+              <span *ngIf="conversation.unreadCount > 0" class="unread-dot"></span>
             </div>
 
             <div class="conversation-content">
@@ -49,12 +48,12 @@
               </div>
 
               <div class="conversation-preview">
-                <div class="preview-text">
+                <div class="preview-text" [class.unread]="conversation.unreadCount > 0">
                   {{ conversation.lastMessage }}
                 </div>
                 <div class="conversation-meta">
-                  <span *ngIf="conversation.product" class="product-tag">
-                    {{ conversation.product }}
+                  <span *ngIf="conversation.productName" class="product-tag">
+                    {{ conversation.productName }}
                   </span>
                   <span *ngIf="conversation.unreadCount > 0" class="unread-badge">
                     {{ conversation.unreadCount }}
@@ -64,68 +63,60 @@
             </div>
           </div>
 
-          <div *ngIf="getFilteredConversations().length === 0" class="empty-conversations">
+          <div *ngIf="conversations.length === 0 && !isLoading" class="empty-conversations">
             <div class="empty-icon">💬</div>
-            <p>Aucune conversation trouvée</p>
+            <h3>Aucun message</h3>
+            <p>Vous n'avez pas encore de conversations avec des clients</p>
           </div>
-        </div>
 
-        <!-- Quick Responses -->
-        <div class="quick-responses">
-          <h3>📝 Réponses rapides</h3>
-          <div class="responses-list">
-            <button class="response-btn" (click)="sendQuickResponse('Bonjour ! Comment puis-je vous aider ?')">
-              Bonjour réponse
-            </button>
-            <button class="response-btn" (click)="sendQuickResponse('Le produit est disponible en stock.')">
-              Disponible
-            </button>
-            <button class="response-btn" (click)="sendQuickResponse('Le prix est de 1500 FCFA/kg.')">
-              Prix
-            </button>
-            <button class="response-btn" (click)="sendQuickResponse('Livraison possible dans toute la ville.')">
-              Livraison
-            </button>
+          <div *ngIf="isLoading" class="loading-conversations">
+            <div class="spinner"></div>
+            <p>Chargement des conversations...</p>
           </div>
         </div>
       </div>
 
-      <!-- Chat Panel -->
+      <!-- Panel de discussion -->
       <div class="chat-panel" *ngIf="selectedConversation; else selectConversationPrompt">
-        <!-- Chat Header -->
+        <!-- En-tête de la discussion -->
         <div class="chat-header">
           <div class="chat-user">
             <div class="user-avatar">{{ selectedConversation.buyerAvatar }}</div>
             <div class="user-info">
               <h3>{{ selectedConversation.buyerName }}</h3>
-              <p *ngIf="selectedConversation.product">{{ selectedConversation.product }}</p>
+              <p *ngIf="selectedConversation.productName">
+                À propos de : {{ selectedConversation.productName }}
+              </p>
             </div>
           </div>
 
           <div class="chat-actions">
-            <button class="chat-action-btn" title="Archiver" (click)="archiveConversation(selectedConversation.id)">
+            <button class="chat-action-btn"
+                    (click)="archiveConversation(selectedConversation.id!)"
+                    title="Archiver">
               📁
-            </button>
-            <button class="chat-action-btn" title="Supprimer" (click)="deleteConversation(selectedConversation.id)">
-              🗑️
             </button>
           </div>
         </div>
 
-        <!-- Messages Container -->
-        <div class="messages-container-sms" #messagesContainer>
+        <!-- Messages -->
+        <div class="messages-container-sms">
           <div class="messages-list">
             <div *ngFor="let message of messages"
                  class="message-wrapper"
-                 [class.sent]="message.senderId === 'producer'">
+                 [class.sent]="message.senderRole === 'producer'"
+                 [class.received]="message.senderRole === 'buyer'">
 
               <div class="message">
+                <div class="message-sender" *ngIf="message.senderRole === 'buyer'">
+                  {{ message.senderName }}
+                </div>
                 <div class="message-content">
                   {{ message.content }}
                 </div>
                 <div class="message-time">
                   {{ getMessageTime(message) }}
-                  <span *ngIf="message.senderId === 'producer'" class="message-status">
+                  <span *ngIf="message.senderRole === 'producer'" class="message-status">
                     {{ message.read ? '✓✓' : '✓' }}
                   </span>
                 </div>
@@ -134,53 +125,43 @@
           </div>
         </div>
 
-        <!-- Message Input -->
+        <!-- Champ de saisie -->
         <div class="message-input-area">
           <div class="input-wrapper">
             <input
               type="text"
               [(ngModel)]="newMessage"
               (keyup.enter)="sendMessage()"
-              placeholder="Tapez votre message..."
+              placeholder="Répondre à {{ selectedConversation.buyerName }}..."
               class="message-input"
             >
-            <button class="send-btn" (click)="sendMessage()" [disabled]="!newMessage.trim()">
+            <button class="send-btn"
+                    (click)="sendMessage()"
+                    [disabled]="!newMessage.trim()">
               <span class="send-icon">📤</span>
-            </button>
-          </div>
-
-          <div class="input-actions">
-            <button class="action-btn" title="Ajouter une image">
-              📷
-            </button>
-            <button class="action-btn" title="Ajouter un produit">
-              📦
-            </button>
-            <button class="action-btn" title="Enregistrer vocal">
-              🎤
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Select Conversation Prompt -->
+      <!-- Message de sélection -->
       <ng-template #selectConversationPrompt>
         <div class="select-conversation-prompt">
           <div class="prompt-icon">💬</div>
           <h2>Sélectionnez une conversation</h2>
-          <p>Choisissez une conversation dans la liste pour commencer à discuter</p>
+          <p>Choisissez une conversation avec un client pour commencer à discuter</p>
+
           <div class="prompt-tips">
-            <p>💡 <strong>Conseils :</strong></p>
+            <h4>💡 Conseils pour une bonne communication :</h4>
             <ul>
-              <li>Répondez rapidement pour augmenter la satisfaction client</li>
-              <li>Utilisez les réponses rapides pour gagner du temps</li>
-              <li>Proposez toujours des alternatives si un produit est épuisé</li>
-              <li>Soyez poli et professionnel dans toutes vos réponses</li>
+              <li><strong>Rapidité :</strong> Répondez dans les 24 heures maximum</li>
+              <li><strong>Clarté :</strong> Soyez précis sur les prix et disponibilités</li>
+              <li><strong>Professionalisme :</strong> Utilisez un langage poli et courtois</li>
+              <li><strong>Transparence :</strong> Informez des délais de livraison réels</li>
             </ul>
           </div>
         </div>
       </ng-template>
     </div>
   </main>
-
 </div>

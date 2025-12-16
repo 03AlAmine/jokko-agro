@@ -1,24 +1,15 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms'; // <-- Ajoute ceci
-
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../services/auth.service';
+import { FirebaseService, Product } from '../../../services/firebase.service';
 
-interface Product {
+// Interface pour les catégories
+interface ProductCategory {
   id: string;
   name: string;
-  category: string;
-  price: number;
-  quantity: number;
-  unit: string;
-  status: 'available' | 'sold_out' | 'draft';
-  image: string;
-  sales: number;
-  rating: number;
-  createdAt: Date;
-  lastUpdated: Date;
-  certified: boolean;
+  icon: string;
 }
 
 @Component({
@@ -36,12 +27,17 @@ export class ProductsComponent implements OnInit {
   selectedCategory = 'all';
   selectedStatus = 'all';
 
-  categories = [
-    { id: 'all', name: 'Toutes les catégories' },
-    { id: 'vegetables', name: 'Légumes' },
-    { id: 'fruits', name: 'Fruits' },
-    { id: 'cereals', name: 'Céréales' },
-    { id: 'tubers', name: 'Tubercules' }
+  // Tableau de catégories avec icônes obligatoires
+  categories: ProductCategory[] = [
+    { id: 'all', name: 'Toutes les catégories', icon: '📦' },
+    { id: 'vegetables', name: 'Légumes', icon: '🥦' },
+    { id: 'fruits', name: 'Fruits', icon: '🍎' },
+    { id: 'cereals', name: 'Céréales', icon: '🌾' },
+    { id: 'tubers', name: 'Tubercules', icon: '🥔' },
+    { id: 'legumes', name: 'Légumineuses', icon: '🥜' },
+    { id: 'spices', name: 'Épices', icon: '🌶️' },
+    { id: 'dairy', name: 'Produits laitiers', icon: '🥛' },
+    { id: 'poultry', name: 'Volaille', icon: '🐔' }
   ];
 
   statuses = [
@@ -61,139 +57,97 @@ export class ProductsComponent implements OnInit {
     { id: 'rating', name: 'Meilleures notes' }
   ];
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private firebaseService: FirebaseService
+  ) {}
 
-  ngOnInit() {
-    this.loadProducts();
+  async ngOnInit() {
+    await this.loadProducts();
   }
 
-  loadProducts() {
-    // Données simulées
+  async loadProducts() {
+    this.isLoading = true;
+
+    try {
+      const user = this.authService.getCurrentUser();
+      if (!user) {
+        this.isLoading = false;
+        return;
+      }
+
+      this.products = await this.firebaseService.getProducerProducts(user.uid);
+
+
+      this.filteredProducts = [...this.products];
+      this.applyFilters();
+
+    } catch (error) {
+      console.error('Erreur lors du chargement des produits:', error);
+      this.loadFallbackData();
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private loadFallbackData() {
     this.products = [
       {
         id: '1',
         name: 'Tomates Bio',
         category: 'vegetables',
+        description: 'Tomates biologiques cultivées localement',
         price: 1500,
         quantity: 50,
         unit: 'kg',
+        certifications: ['organic', 'local'],
+        isOrganic: true,
+        harvestDate: '2024-01-10',
+        storageConditions: 'Conserver au frais',
+        location: 'Dakar, Sénégal',
+        contactPhone: '771234567',
+        minOrderQuantity: 1,
+        producerId: 'producer1',
+        producerName: 'Producteur Test',
+        producerPhone: '771234567',
+        images: [],
         status: 'available',
-        image: '🍅',
+        views: 100,
         sales: 45,
         rating: 4.8,
+        isActive: true,
         createdAt: new Date('2024-01-10'),
-        lastUpdated: new Date('2024-01-15'),
-        certified: true
-      },
-      {
-        id: '2',
-        name: 'Carottes Fraîches',
-        category: 'vegetables',
-        price: 1200,
-        quantity: 30,
-        unit: 'kg',
-        status: 'available',
-        image: '🥕',
-        sales: 28,
-        rating: 4.5,
-        createdAt: new Date('2024-01-12'),
-        lastUpdated: new Date('2024-01-14'),
-        certified: true
-      },
-      {
-        id: '3',
-        name: 'Oignons Rouges',
-        category: 'vegetables',
-        price: 800,
-        quantity: 0,
-        unit: 'kg',
-        status: 'sold_out',
-        image: '🧅',
-        sales: 60,
-        rating: 4.2,
-        createdAt: new Date('2024-01-05'),
-        lastUpdated: new Date('2024-01-13'),
-        certified: false
-      },
-      {
-        id: '4',
-        name: 'Mangues Kent',
-        category: 'fruits',
-        price: 2000,
-        quantity: 20,
-        unit: 'kg',
-        status: 'available',
-        image: '🥭',
-        sales: 15,
-        rating: 4.9,
-        createdAt: new Date('2024-01-08'),
-        lastUpdated: new Date('2024-01-12'),
-        certified: true
-      },
-      {
-        id: '5',
-        name: 'Riz Local',
-        category: 'cereals',
-        price: 5000,
-        quantity: 100,
-        unit: 'sac',
-        status: 'available',
-        image: '🌾',
-        sales: 8,
-        rating: 4.7,
-        createdAt: new Date('2024-01-03'),
-        lastUpdated: new Date('2024-01-10'),
-        certified: true
-      },
-      {
-        id: '6',
-        name: 'Pommes de Terre',
-        category: 'tubers',
-        price: 900,
-        quantity: 40,
-        unit: 'kg',
-        status: 'draft',
-        image: '🥔',
-        sales: 0,
-        rating: 0,
-        createdAt: new Date('2024-01-14'),
-        lastUpdated: new Date('2024-01-14'),
-        certified: false
+        updatedAt: new Date('2024-01-15')
       }
     ];
-
     this.filteredProducts = [...this.products];
-    this.isLoading = false;
     this.applyFilters();
   }
 
   applyFilters() {
     let filtered = [...this.products];
 
-    // Filtre par recherche
     if (this.searchQuery) {
       filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(this.searchQuery.toLowerCase())
+        product.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+        product.description?.toLowerCase().includes(this.searchQuery.toLowerCase())
       );
     }
 
-    // Filtre par catégorie
     if (this.selectedCategory !== 'all') {
       filtered = filtered.filter(product => product.category === this.selectedCategory);
     }
 
-    // Filtre par statut
     if (this.selectedStatus !== 'all') {
       filtered = filtered.filter(product => product.status === this.selectedStatus);
     }
 
-    // Tri
     filtered.sort((a, b) => {
       switch (this.sortBy) {
         case 'recent':
-          return b.lastUpdated.getTime() - a.lastUpdated.getTime();
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
         case 'oldest':
-          return a.lastUpdated.getTime() - b.lastUpdated.getTime();
+          return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
         case 'price_low':
           return a.price - b.price;
         case 'price_high':
@@ -215,11 +169,16 @@ export class ProductsComponent implements OnInit {
     return category ? category.name : categoryId;
   }
 
+  getCategoryIcon(categoryId: string): string {
+    const category = this.categories.find(c => c.id === categoryId);
+    return category ? category.icon : '📦';
+  }
+
   getStatusText(status: string): string {
     switch (status) {
       case 'available': return 'Disponible';
       case 'sold_out': return 'Épuisé';
-      case 'draft': return 'Brouillon';
+      case 'inactive': return 'Inactif';
       default: return status;
     }
   }
@@ -228,7 +187,7 @@ export class ProductsComponent implements OnInit {
     switch (status) {
       case 'available': return 'status-available';
       case 'sold_out': return 'status-sold-out';
-      case 'draft': return 'status-draft';
+      case 'inactive': return 'status-inactive';
       default: return '';
     }
   }
@@ -237,26 +196,32 @@ export class ProductsComponent implements OnInit {
     return product.price * product.quantity;
   }
 
-  editProduct(productId: string) {
+  async editProduct(productId: string) {
     console.log('Modifier produit:', productId);
-    // À implémenter: navigation vers édition
   }
 
-  deleteProduct(productId: string) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
-      console.log('Supprimer produit:', productId);
-      // À implémenter: suppression de Firestore
+  async deleteProduct(productId: string) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible.')) {
+      try {
+        await this.firebaseService.deleteProduct(productId);
+        await this.loadProducts();
+      } catch (error) {
+        alert('Erreur lors de la suppression du produit');
+      }
     }
   }
 
-  duplicateProduct(productId: string) {
+  async duplicateProduct(productId: string) {
     console.log('Dupliquer produit:', productId);
-    // À implémenter: duplication
   }
 
-  updateStatus(productId: string, newStatus: string) {
-    console.log('Changer statut:', productId, '→', newStatus);
-    // À implémenter: mise à jour dans Firestore
+  async updateStatus(productId: string, newStatus: string) {
+    try {
+      await this.firebaseService.updateProductStatus(productId, newStatus as Product['status']);
+      await this.loadProducts();
+    } catch (error) {
+      alert('Erreur lors de la mise à jour du statut');
+    }
   }
 
   getTotalProductsCount(): number {
@@ -269,6 +234,12 @@ export class ProductsComponent implements OnInit {
 
   getTotalValueSum(): number {
     return this.products.reduce((sum, product) => sum + this.getTotalValue(product), 0);
+  }
+
+  getTopSellingProducts(): Product[] {
+    return [...this.products]
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 3);
   }
 
   handleVoiceCommand(command: string) {
@@ -284,4 +255,5 @@ export class ProductsComponent implements OnInit {
       this.applyFilters();
     }
   }
+  
 }

@@ -1,0 +1,453 @@
+<div class="market-container">
+  <!-- En-tête -->
+  <div class="market-header">
+    <div class="header-left">
+      <h1><span class="header-icon">🛍️</span> Marché</h1>
+      <p class="subtitle">
+        Découvrez des produits frais et certifiés près de chez vous
+      </p>
+    </div>
+    <div class="header-right">
+      <div class="view-toggle">
+        <button
+          class="view-btn"
+          [class.active]="viewMode === 'grid'"
+          (click)="viewMode = 'grid'"
+        >
+          ▦ Grille
+        </button>
+        <button
+          class="view-btn"
+          [class.active]="viewMode === 'list'"
+          (click)="viewMode = 'list'"
+        >
+          ☰ Liste
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistiques rapides -->
+  <div class="quick-stats">
+    <div class="stat-card">
+      <div class="stat-icon">📦</div>
+      <div class="stat-info">
+        <h3>{{ allProducts.length }}</h3>
+        <p>Produits au total</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📍</div>
+      <div class="stat-info">
+        <h3>{{ maxDistance }} km</h3>
+        <p>Rayon de recherche</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-info">
+        <h3>{{ getCertifiedProductsCount() }}</h3>
+        <p>Produits certifiés</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">👨‍🌾</div>
+      <div class="stat-info">
+        <h3>{{ getUniqueProducers(allProducts) }}</h3>
+        <p>Producteurs actifs</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barre de recherche principale -->
+  <div class="main-search">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="applyFilters()"
+        placeholder="Rechercher un produit, producteur ou catégorie..."
+        class="search-input"
+      />
+      <button class="search-btn" (click)="applyFilters()">Rechercher</button>
+      <button
+        class="search-btn refresh"
+        (click)="loadProducts()"
+        title="Actualiser"
+      >
+        🔄
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtres et catégories -->
+  <div class="filters-section">
+    <!-- Catégories -->
+    <div class="categories-section">
+      <h3>Catégories</h3>
+      <div class="categories-list">
+        <div
+          *ngFor="let category of categories"
+          class="category-item"
+          [class.active]="selectedCategory === category.id"
+          (click)="selectedCategory = category.id; applyFilters()"
+        >
+          <div class="category-icon">{{ category.icon }}</div>
+          <div class="category-name">{{ category.name }}</div>
+          <div class="category-count">{{ category.count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtres avancés -->
+    <div class="advanced-filters">
+      <h3>Filtres</h3>
+      <div class="filter-group">
+        <label>Certifications :</label>
+        <select
+          [(ngModel)]="selectedCertification"
+          (ngModelChange)="applyFilters()"
+        >
+          <option *ngFor="let cert of certifications" [value]="cert.id">
+            {{ cert.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Tri par :</label>
+        <select [(ngModel)]="selectedSort" (ngModelChange)="applyFilters()">
+          <option *ngFor="let option of sortOptions" [value]="option.id">
+            {{ option.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Distance max : {{ maxDistance }} km</label>
+        <input
+          type="range"
+          [(ngModel)]="maxDistance"
+          (ngModelChange)="applyFilters()"
+          min="1"
+          max="100"
+          step="1"
+          class="distance-slider"
+        />
+      </div>
+
+      <div class="filter-group">
+        <label
+          >Prix : {{ priceRange[0].toLocaleString() }} - {{
+          priceRange[1].toLocaleString() }} FCFA</label
+        >
+        <div class="price-slider">
+          <input
+            type="range"
+            [(ngModel)]="priceRange[0]"
+            (ngModelChange)="applyFilters()"
+            min="0"
+            max="100000"
+            step="1000"
+            class="range-min"
+          />
+          <input
+            type="range"
+            [(ngModel)]="priceRange[1]"
+            (ngModelChange)="applyFilters()"
+            min="0"
+            max="100000"
+            step="1000"
+            class="range-max"
+          />
+        </div>
+      </div>
+
+      <button class="clear-filters" (click)="clearFilters()">
+        ✕ Effacer tous les filtres
+      </button>
+    </div>
+  </div>
+
+  <!-- Résultats -->
+  <div class="results-section">
+    <div class="results-header">
+      <h2>Produits disponibles ({{ getFilteredCount() }})</h2>
+      <div class="results-actions">
+        <button class="action-btn" routerLink="/buyer/scan">
+          📱 Scanner QR
+        </button>
+        <button class="action-btn" (click)="loadProducts()" title="Actualiser">
+          🔄 Actualiser
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading">
+      <div class="spinner"></div>
+      <p>Chargement des produits...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div
+      *ngIf="!isLoading && filteredProducts.length === 0"
+      class="empty-state"
+    >
+      <div class="empty-icon">🛍️</div>
+      <h3>Aucun produit trouvé</h3>
+      <p *ngIf="allProducts.length === 0">
+        Aucun produit n'est disponible pour le moment.
+      </p>
+      <p *ngIf="allProducts.length > 0">
+        Aucun produit ne correspond à vos critères de recherche.
+      </p>
+      <button class="btn-primary" (click)="clearFilters()">
+        Voir tous les produits
+      </button>
+      <button
+        class="btn-secondary"
+        (click)="loadProducts()"
+        style="margin-left: 10px"
+      >
+        🔄 Réessayer
+      </button>
+    </div>
+
+    <!-- Products Grid -->
+    <div
+      *ngIf="!isLoading && filteredProducts.length > 0 && viewMode === 'grid'"
+      class="products-grid"
+    >
+      <div *ngFor="let product of filteredProducts" class="product-card">
+        <!-- Product Header -->
+        <div class="product-header">
+          <div class="product-image" [class.certified]="product.certified">
+            {{ product.displayImage }}
+            <span *ngIf="product.certified" class="certified-badge">✔</span>
+            <button
+              class="favorite-btn"
+              (click)="toggleFavorite(product.id || '')"
+            >
+              ♡
+            </button>
+          </div>
+
+          <div class="product-badges">
+            <span *ngIf="product.certified" class="badge certified"
+              >Certifié</span
+            >
+            <span *ngIf="product.organic" class="badge organic">Bio</span>
+
+            <ng-container *ngFor="let cert of product.certifications">
+              <span *ngIf="cert !== 'organic'" [class]="'badge ' + cert">
+                {{ cert === 'local' ? '📍 Local' : cert === 'fairtrade' ? '⚖️
+                Équitable' : cert === 'seasonal' ? '🌞 Saison' : cert }}
+              </span>
+            </ng-container>
+
+            <span [class]="'badge status ' + getProductStatusClass(product)">
+              {{ getProductStatus(product) }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Product Body -->
+        <div class="product-body">
+          <div class="product-info">
+            <h3 class="product-name">{{ product.name }}</h3>
+            <p class="product-description">{{ product.description }}</p>
+
+            <div class="producer-info">
+              <div class="producer-name">{{ product.producer }}</div>
+              <div class="producer-rating">
+                <span class="stars">
+                  <span
+                    *ngFor="let star of getStars(product.producerRating)"
+                    class="star"
+                    [class.filled]="star === 1"
+                    >★</span
+                  >
+                </span>
+                <span class="rating"
+                  >{{ product.producerRating.toFixed(1) }}</span
+                >
+              </div>
+            </div>
+
+            <div class="product-details">
+              <div class="detail">
+                <span class="detail-label">📍</span>
+                <span class="detail-value">{{ product.distance }} km</span>
+              </div>
+              <div class="detail">
+                <span class="detail-label">⭐</span>
+                <span class="detail-value"
+                  >{{ product.rating.toFixed(1) }} ({{ product.reviews }})</span
+                >
+              </div>
+              <div class="detail">
+                <span class="detail-label">📦</span>
+                <span class="detail-value">{{ product.stock }} restants</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="product-footer">
+            <div class="product-price">
+              <div class="price">{{ formatPrice(product.price) }}</div>
+              <div class="unit">
+                / {{ product.minOrderQuantity || 1 }} {{ product.unit }}
+              </div>
+            </div>
+
+            <div class="product-actions">
+              <button
+                class="btn-secondary"
+                (click)="viewProductDetails(product)"
+              >
+                Détails
+              </button>
+              <button
+                class="btn-primary"
+                (click)="addToCart(product)"
+                [disabled]="product.stock === 0 || product.status !== 'available'"
+              >
+                <span class="btn-icon">🛒</span>
+                Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products List View -->
+    <div
+      *ngIf="!isLoading && filteredProducts.length > 0 && viewMode === 'list'"
+      class="products-list"
+    >
+      <div *ngFor="let product of filteredProducts" class="product-row">
+        <div class="row-image" [class.certified]="product.certified">
+          {{ product.displayImage }}
+          <span *ngIf="product.certified" class="certified-badge">✔</span>
+        </div>
+
+        <div class="row-info">
+          <div class="row-header">
+            <h3>{{ product.name }}</h3>
+            <div class="row-badges">
+              <span *ngIf="product.certified" class="badge certified"
+                >Certifié</span
+              >
+              <span *ngIf="product.organic" class="badge organic">Bio</span>
+              <span [class]="'badge status ' + getProductStatusClass(product)">
+                {{ getProductStatus(product) }}
+              </span>
+            </div>
+          </div>
+
+          <p class="row-description">{{ product.description }}</p>
+
+          <div class="row-details">
+            <div class="detail">
+              <span class="detail-label">Producteur :</span>
+              <span class="detail-value">{{ product.producer }}</span>
+            </div>
+            <div class="detail">
+              <span class="detail-label">Distance :</span>
+              <span class="detail-value">{{ product.distance }} km</span>
+            </div>
+            <div class="detail">
+              <span class="detail-label">Note :</span>
+              <span class="detail-value">
+                <span class="stars">
+                  <span
+                    *ngFor="let star of getStars(product.rating)"
+                    class="star"
+                    [class.filled]="star === 1"
+                    >★</span
+                  >
+                </span>
+                {{ product.rating.toFixed(1) }} ({{ product.reviews }})
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-actions">
+          <div class="row-price">
+            <div class="price">{{ formatPrice(product.price) }}</div>
+            <div class="unit">
+              / {{ product.minOrderQuantity || 1 }} {{ product.unit }}
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button
+              class="favorite-btn"
+              (click)="toggleFavorite(product.id || '')"
+              title="Ajouter aux favoris"
+            >
+              ♡
+            </button>
+            <button class="btn-secondary" (click)="viewProductDetails(product)">
+              Détails
+            </button>
+            <button
+              class="btn-primary"
+              (click)="addToCart(product)"
+              [disabled]="product.stock === 0 || product.status !== 'available'"
+            >
+              🛒 Ajouter
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagination (optionnel pour l'instant) -->
+    <div *ngIf="filteredProducts.length > 12" class="pagination">
+      <button class="page-btn prev" disabled>← Précédent</button>
+      <div class="page-numbers">
+        <span class="page-number active">1</span>
+        <span class="page-number">2</span>
+        <span class="page-number">3</span>
+        <span class="dots">...</span>
+        <span class="page-number">10</span>
+      </div>
+      <button class="page-btn next">Suivant →</button>
+    </div>
+  </div>
+
+  <!-- Tips Section -->
+  <div class="tips-section">
+    <div class="tip-card">
+      <h3>💡 Conseils d'achat</h3>
+      <ul>
+        <li>✅ Vérifiez toujours les dates de récolte et d'expiration</li>
+        <li>
+          ✅ Privilégiez les producteurs locaux pour une meilleure fraîcheur
+        </li>
+        <li>✅ Commandez tôt pour les produits en stock limité</li>
+        <li>
+          ✅ Utilisez les filtres pour trouver exactement ce que vous cherchez
+        </li>
+      </ul>
+    </div>
+    <div class="tip-card">
+      <h3>🔒 Produits certifiés</h3>
+      <p>Les produits avec le badge "Certifié" ont été vérifiés :</p>
+      <ol>
+        <li>Traçabilité complète depuis la ferme</li>
+        <li>Qualité contrôlée par nos équipes</li>
+        <li>Conformité aux standards agricoles</li>
+        <li>Fraîcheur garantie</li>
+      </ol>
+      <button routerLink="/buyer/scan" class="scan-tip-btn">
+        📱 Scanner un produit
+      </button>
+    </div>
+  </div>
+</div>

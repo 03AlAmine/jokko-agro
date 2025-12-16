@@ -19,6 +19,7 @@ export class RegisterComponent {
     password: '',
     confirmPassword: '',
     role: '' as 'producer' | 'buyer' | '',
+    location: 'Dakar, Sénégal', // Ajoutez ce champ avec une valeur par défaut
   };
 
   isLoading = false;
@@ -51,7 +52,13 @@ export class RegisterComponent {
     this.errorMessage = '';
 
     try {
-      const result = await this.authService.register(this.userData);
+      // Assurez-vous que la location n'est pas undefined
+      const registrationData = {
+        ...this.userData,
+        location: this.userData.location || 'Dakar, Sénégal'
+      };
+
+      const result = await this.authService.register(registrationData);
 
       if (!result.success) {
         this.errorMessage = result.error || "Erreur lors de l'inscription";

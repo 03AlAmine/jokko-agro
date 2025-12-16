@@ -1,42 +1,17 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
-
-interface Conversation {
-  id: string;
-  buyerId: string;
-  buyerName: string;
-  buyerAvatar: string;
-  lastMessage: string;
-  lastMessageTime: Date;
-  unreadCount: number;
-  product?: string;
-  status: 'active' | 'archived';
-}
-
-interface Message {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  senderName: string;
-  content: string;
-  timestamp: Date;
-  read: boolean;
-  type: 'text' | 'image' | 'product';
-}
+import { FirebaseService, Conversation, Message } from '../../../services/firebase.service';
 
 @Component({
-  selector: 'app-messages',
+  selector: 'app-messages-producer',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './messages.html',
   styleUrls: ['./messages.css']
 })
-export class MessagesComponent implements OnInit {
-  @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
-
+export class MessagesComponent implements OnInit, OnDestroy {
   conversations: Conversation[] = [];
   messages: Message[] = [];
   selectedConversation: Conversation | null = null;
@@ -44,268 +19,150 @@ export class MessagesComponent implements OnInit {
   newMessage = '';
   searchQuery = '';
   isLoading = false;
+  currentUser: any;
 
-  // Données simulées
-  buyers = [
-    { id: '1', name: 'Alioune Diop', avatar: '👨🏾' },
-    { id: '2', name: 'Fatou Ndiaye', avatar: '👩🏾' },
-    { id: '3', name: 'Moussa Fall', avatar: '👨🏾' },
-    { id: '4', name: 'Aminata Sow', avatar: '👩🏾' },
-    { id: '5', name: 'Ibrahima Diallo', avatar: '👨🏾' }
-  ];
+  private messagesUnsubscribe: (() => void) | null = null;
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private firebaseService: FirebaseService
+  ) {}
 
-  ngOnInit() {
-    this.loadConversations();
+  async ngOnInit() {
+    this.currentUser = this.authService.getUserData();
+    if (this.currentUser) {
+      await this.loadConversations();
+    }
   }
 
-  loadConversations() {
-    this.conversations = [
-      {
-        id: '1',
-        buyerId: '1',
-        buyerName: 'Alioune Diop',
-        buyerAvatar: '👨🏾',
-        lastMessage: 'Bonjour, les tomates sont toujours disponibles ?',
-        lastMessageTime: new Date('2024-01-15T10:30:00'),
-        unreadCount: 2,
-        product: 'Tomates Bio',
-        status: 'active'
-      },
-      {
-        id: '2',
-        buyerId: '2',
-        buyerName: 'Fatou Ndiaye',
-        buyerAvatar: '👩🏾',
-        lastMessage: 'Merci pour la livraison rapide !',
-        lastMessageTime: new Date('2024-01-14T15:20:00'),
-        unreadCount: 0,
-        product: 'Carottes Fraîches',
-        status: 'active'
-      },
-      {
-        id: '3',
-        buyerId: '3',
-        buyerName: 'Moussa Fall',
-        buyerAvatar: '👨🏾',
-        lastMessage: 'Pouvez-vous me confirmer le prix pour 10kg ?',
-        lastMessageTime: new Date('2024-01-14T09:15:00'),
-        unreadCount: 1,
-        product: 'Oignons Rouges',
-        status: 'active'
-      },
-      {
-        id: '4',
-        buyerId: '4',
-        buyerName: 'Aminata Sow',
-        buyerAvatar: '👩🏾',
-        lastMessage: 'À quelle heure puis-je passer ?',
-        lastMessageTime: new Date('2024-01-13T16:45:00'),
-        unreadCount: 0,
-        product: 'Mangues Kent',
-        status: 'active'
-      },
-      {
-        id: '5',
-        buyerId: '5',
-        buyerName: 'Ibrahima Diallo',
-        buyerAvatar: '👨🏾',
-        lastMessage: 'La commande a été annulée',
-        lastMessageTime: new Date('2024-01-12T11:10:00'),
-        unreadCount: 0,
-        status: 'archived'
-      }
-    ];
+  ngOnDestroy() {
+    if (this.messagesUnsubscribe) {
+      this.messagesUnsubscribe();
+    }
   }
 
-  selectConversation(conversation: Conversation) {
+  async loadConversations() {
+    this.isLoading = true;
+    try {
+      this.conversations = await this.firebaseService.getProducerConversations(this.currentUser.uid);
+      console.log('Conversations chargées:', this.conversations);
+    } catch (error) {
+      console.error('Erreur lors du chargement des conversations:', error);
+      this.loadFallbackData();
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async selectConversation(conversation: Conversation) {
     this.selectedConversation = conversation;
-    this.loadMessages(conversation.id);
 
-    // Marquer comme lu
+    // Se désabonner de l'ancienne écoute
+    if (this.messagesUnsubscribe) {
+      this.messagesUnsubscribe();
+    }
+
+    // Charger les messages existants
+    await this.loadMessages(conversation.id!);
+
+    // Marquer les messages comme lus
+    await this.firebaseService.markMessagesAsRead(conversation.id!, this.currentUser.uid);
+
+    // Mettre à jour la conversation locale
     conversation.unreadCount = 0;
 
-    // Focus sur le champ de message après un délai
-    setTimeout(() => {
-      const input = document.querySelector('.message-input') as HTMLInputElement;
-      input?.focus();
-    }, 100);
-  }
-
-  loadMessages(conversationId: string) {
-    // Messages simulés
-    this.messages = [
-      {
-        id: '1',
-        conversationId: '1',
-        senderId: '1',
-        senderName: 'Alioune Diop',
-        content: 'Bonjour, les tomates sont toujours disponibles ?',
-        timestamp: new Date('2024-01-15T10:30:00'),
-        read: true,
-        type: 'text'
-      },
-      {
-        id: '2',
-        conversationId: '1',
-        senderId: 'producer',
-        senderName: 'Vous',
-        content: 'Bonjour Alioune ! Oui, il me reste 20kg de tomates bio.',
-        timestamp: new Date('2024-01-15T10:35:00'),
-        read: true,
-        type: 'text'
-      },
-      {
-        id: '3',
-        conversationId: '1',
-        senderId: '1',
-        senderName: 'Alioune Diop',
-        content: 'Parfait ! Je prends 5kg. C\'est possible de passer ce soir ?',
-        timestamp: new Date('2024-01-15T10:40:00'),
-        read: false,
-        type: 'text'
-      },
-      {
-        id: '4',
-        conversationId: '1',
-        senderId: '1',
-        senderName: 'Alioune Diop',
-        content: 'Et quel est le prix au kg ?',
-        timestamp: new Date('2024-01-15T10:42:00'),
-        read: false,
-        type: 'text'
+    // S'abonner aux nouveaux messages en temps réel
+    this.messagesUnsubscribe = this.firebaseService.subscribeToConversationMessages(
+      conversation.id!,
+      (newMessages) => {
+        this.messages = newMessages;
+        this.scrollToBottom();
       }
-    ];
-
-    // Scroll vers le bas des messages
-    setTimeout(() => this.scrollToBottom(), 100);
+    );
   }
 
-  sendMessage() {
-    if (!this.newMessage.trim() || !this.selectedConversation) return;
+  async loadMessages(conversationId: string) {
+    try {
+      this.messages = await this.firebaseService.getConversationMessages(conversationId);
+      this.scrollToBottom();
+    } catch (error) {
+      console.error('Erreur lors du chargement des messages:', error);
+    }
+  }
 
-    const message: Message = {
-      id: Date.now().toString(),
-      conversationId: this.selectedConversation.id,
-      senderId: 'producer',
-      senderName: 'Vous',
+  async sendMessage() {
+    if (!this.newMessage.trim() || !this.selectedConversation || !this.currentUser) return;
+
+    const messageData: Omit<Message, 'id'> = {
+      conversationId: this.selectedConversation.id!,
+      senderId: this.currentUser.uid,
+      senderName: this.currentUser.fullName,
+      senderRole: 'producer',
       content: this.newMessage.trim(),
       timestamp: new Date(),
       read: true,
       type: 'text'
     };
 
-    this.messages.push(message);
-
-    // Mettre à jour la conversation
-    const conversation = this.conversations.find(c => c.id === this.selectedConversation?.id);
-    if (conversation) {
-      conversation.lastMessage = this.newMessage;
-      conversation.lastMessageTime = new Date();
-
-      // Remettre la conversation en haut de la liste
-      this.conversations = this.conversations.filter(c => c.id !== conversation.id);
-      this.conversations.unshift(conversation);
-    }
-
-    this.newMessage = '';
-
-    // Simuler une réponse automatique après 2 secondes
-    setTimeout(() => {
-      if (this.selectedConversation) {
-        const buyer = this.buyers.find(b => b.id === this.selectedConversation?.buyerId);
-        if (buyer) {
-          const reply: Message = {
-            id: (Date.now() + 1).toString(),
-            conversationId: this.selectedConversation.id,
-            senderId: buyer.id,
-            senderName: buyer.name,
-            content: 'Merci pour votre réponse !',
-            timestamp: new Date(),
-            read: false,
-            type: 'text'
-          };
-          this.messages.push(reply);
-
-          // Marquer comme non lu
-          if (conversation) {
-            conversation.unreadCount++;
-            conversation.lastMessage = reply.content;
-            conversation.lastMessageTime = reply.timestamp;
-          }
-        }
-      }
-    }, 2000);
-
-    this.scrollToBottom();
-  }
-
-  scrollToBottom() {
     try {
-      this.messagesContainer.nativeElement.scrollTop = this.messagesContainer.nativeElement.scrollHeight;
-    } catch(err) { }
+      const result = await this.firebaseService.sendMessage(messageData);
+
+      if (result.success) {
+        this.newMessage = '';
+        this.scrollToBottom();
+      } else {
+        alert('Erreur lors de l\'envoi du message: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi:', error);
+      alert('Erreur lors de l\'envoi du message');
+    }
   }
 
-  getFilteredConversations() {
-    if (!this.searchQuery) return this.conversations;
-
-    return this.conversations.filter(conv =>
-      conv.buyerName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-      (conv.product && conv.product.toLowerCase().includes(this.searchQuery.toLowerCase())) ||
-      conv.lastMessage.toLowerCase().includes(this.searchQuery.toLowerCase())
-    );
+  // Méthodes utilitaires
+  scrollToBottom() {
+    setTimeout(() => {
+      const container = document.querySelector('.messages-container-sms');
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }, 100);
   }
 
   getConversationTime(conversation: Conversation): string {
     const now = new Date();
     const messageTime = new Date(conversation.lastMessageTime);
-    const diffHours = Math.floor((now.getTime() - messageTime.getTime()) / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((now.getTime() - messageTime.getTime()) / (1000 * 60));
 
-    if (diffHours < 1) {
-      return 'À l\'instant';
-    } else if (diffHours < 24) {
-      return `Il y a ${diffHours}h`;
-    } else {
-      return messageTime.toLocaleDateString();
-    }
+    if (diffMinutes < 1) return 'À l\'instant';
+    if (diffMinutes < 60) return `Il y a ${diffMinutes} min`;
+    if (diffMinutes < 1440) return `Il y a ${Math.floor(diffMinutes / 60)}h`;
+
+    return messageTime.toLocaleDateString();
   }
 
   getMessageTime(message: Message): string {
     return message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  isToday(date: Date): boolean {
-    const today = new Date();
-    return date.getDate() === today.getDate() &&
-           date.getMonth() === today.getMonth() &&
-           date.getFullYear() === today.getFullYear();
-  }
+  async archiveConversation(conversationId: string) {
+    try {
+      await this.firebaseService.updateConversation(conversationId, { status: 'archived' });
 
-  archiveConversation(conversationId: string) {
-    const conversation = this.conversations.find(c => c.id === conversationId);
-    if (conversation) {
-      conversation.status = 'archived';
+      // Mettre à jour localement
+      const conversation = this.conversations.find(c => c.id === conversationId);
+      if (conversation) {
+        conversation.status = 'archived';
+      }
+
       if (this.selectedConversation?.id === conversationId) {
         this.selectedConversation = null;
         this.messages = [];
       }
+    } catch (error) {
+      console.error('Erreur lors de l\'archivage:', error);
+      alert('Erreur lors de l\'archivage de la conversation');
     }
-  }
-
-  deleteConversation(conversationId: string) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) {
-      this.conversations = this.conversations.filter(c => c.id !== conversationId);
-      if (this.selectedConversation?.id === conversationId) {
-        this.selectedConversation = null;
-        this.messages = [];
-      }
-    }
-  }
-
-  sendQuickResponse(response: string) {
-    this.newMessage = response;
-    this.sendMessage();
   }
 
   getUnreadCount(): number {
@@ -316,17 +173,7 @@ export class MessagesComponent implements OnInit {
     return this.conversations.filter(c => c.status === 'active').length;
   }
 
-  handleVoiceCommand(command: string) {
-    const lowerCommand = command.toLowerCase();
-
-    if (lowerCommand.includes('bonjour') || lowerCommand.includes('salut')) {
-      this.sendQuickResponse('Bonjour ! Comment puis-je vous aider ?');
-    } else if (lowerCommand.includes('disponible') || lowerCommand.includes('stock')) {
-      this.sendQuickResponse('Oui, le produit est disponible en stock.');
-    } else if (lowerCommand.includes('prix')) {
-      this.sendQuickResponse('Le prix est de 1500 FCFA le kilogramme.');
-    } else if (lowerCommand.includes('livraison')) {
-      this.sendQuickResponse('Nous proposons la livraison dans toute la ville.');
-    }
+  private loadFallbackData() {
+    // Données de fallback (comme avant)
   }
 }

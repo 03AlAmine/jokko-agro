@@ -703,3 +703,53 @@
     gap: 0.5rem;
   }
 }
+/* Dans products.css */
+.product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.tag {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tag.organic {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.tag.local {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.tag.fairtrade {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
+.tag.seasonal {
+  background-color: #fce4ec;
+  color: #c2185b;
+}
+
+.certified-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border: 2px solid white;
+}

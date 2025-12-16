@@ -2,7 +2,6 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
-import { VoiceAssistantComponent } from '../../../components/voice-assistant/voice-assistant';
 
 interface DashboardStat {
   label: string;
@@ -35,7 +34,7 @@ interface RecommendedProduct {
 @Component({
   selector: 'app-buyer-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, VoiceAssistantComponent],
+  imports: [CommonModule, RouterLink],
   templateUrl: './buyer-dashboard.html',
   styleUrls: ['./buyer-dashboard.css']
 })
@@ -116,9 +115,6 @@ export class BuyerDashboardComponent implements OnInit {
     }
   }
 
-  logout() {
-    this.authService.logout();
-  }
 
   formatPrice(price: number): string {
     return price.toLocaleString() + ' FCFA';

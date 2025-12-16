@@ -1,43 +1,42 @@
-import { Injectable, inject } from '@angular/core';
+import { inject } from '@angular/core';
 import { Router, CanActivateFn } from '@angular/router';
 import { AuthService } from './auth.service';
 
-@Injectable({
-  providedIn: 'root'
-})
-export class AuthGuard {
-  constructor(private authService: AuthService, private router: Router) {}
+export const authGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+  const currentUrl = router.url;
 
-  canActivate(): boolean {
-    // Vérifier si l'application est toujours en cours d'initialisation
-    if (this.authService.isInitializing()) {
-      console.log('Application en cours d\'initialisation...');
-      return false;
-    }
+  console.log('authGuard - Exécution:', {
+    isAuthenticated: authService.isAuthenticated(),
+    userRole: authService.getUserRole(),
+    currentUrl
+  });
 
-    if (!this.authService.isAuthenticated()) {
-      this.router.navigate(['/login']);
+  // À ce stade, Firebase devrait être initialisé
+  if (!authService.isAuthenticated()) {
+    if (!['/login', '/register', '/'].includes(currentUrl)) {
+      router.navigate(['/login']);
       return false;
     }
     return true;
   }
-}
 
-// Guards functions
-export const authGuard: CanActivateFn = () => {
-  const authService = inject(AuthService);
-  const router = inject(Router);
-
-  // Vérifier si l'application est toujours en cours d'initialisation
-  if (authService.isInitializing()) {
-    console.log('Application en cours d\'initialisation...');
-    return false;
+  // Si authentifié et sur login/register, rediriger
+  if (['/login', '/register', '/'].includes(currentUrl)) {
+    const role = authService.getUserRole();
+    if (role === 'producer') {
+      router.navigate(['/producer/dashboard']);
+      return false;
+    } else if (role === 'buyer') {
+      router.navigate(['/buyer/dashboard']);
+      return false;
+    } else {
+      router.navigate(['/select-role']);
+      return false;
+    }
   }
 
-  if (!authService.isAuthenticated()) {
-    router.navigate(['/login']);
-    return false;
-  }
   return true;
 };
 
@@ -45,10 +44,10 @@ export const producerGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (authService.isInitializing()) {
-    console.log('Application en cours d\'initialisation...');
-    return false;
-  }
+  console.log('producerGuard - Exécution:', {
+    isAuthenticated: authService.isAuthenticated(),
+    userRole: authService.getUserRole()
+  });
 
   if (!authService.isAuthenticated()) {
     router.navigate(['/login']);
@@ -67,10 +66,10 @@ export const buyerGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (authService.isInitializing()) {
-    console.log('Application en cours d\'initialisation...');
-    return false;
-  }
+  console.log('buyerGuard - Exécution:', {
+    isAuthenticated: authService.isAuthenticated(),
+    userRole: authService.getUserRole()
+  });
 
   if (!authService.isAuthenticated()) {
     router.navigate(['/login']);

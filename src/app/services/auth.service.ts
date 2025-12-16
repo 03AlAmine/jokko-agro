@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { FirebaseService, UserData } from './firebase.service';
+import { getAuth } from 'firebase/auth';
 
 @Injectable({
   providedIn: 'root'
@@ -58,10 +59,18 @@ export class AuthService {
     }
   }
 
-  isAuthenticated(): boolean {
-    return this.firebaseService.isAuthenticated();
-  }
+isAuthenticated(): boolean {
+  // Utiliser la méthode directe de Firebase
+  const firebaseAuth = getAuth();
+  const currentUser = firebaseAuth.currentUser;
 
+  console.log('AuthService.isAuthenticated - État Firebase:', {
+    firebaseUser: currentUser?.email,
+    localUser: this.firebaseService.currentUser?.email
+  });
+
+  return !!currentUser;
+}
   getUserRole(): 'producer' | 'buyer' | null {
     return this.firebaseService.getUserRole();
   }

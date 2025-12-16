@@ -1,15 +1,23 @@
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, APP_INITIALIZER } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
-
 import { routes } from './app.routes';
-import { authInterceptor } from './services/auth-interceptor.service';
+import { AppInitService } from './services/app-init.service';
+
+export function initializeApp(appInitService: AppInitService) {
+  return (): Promise<void> => {
+    return appInitService.init();
+  };
+}
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
-    provideHttpClient(
-      withInterceptors([authInterceptor])
-    )
+    AppInitService,
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeApp,
+      deps: [AppInitService],
+      multi: true
+    }
   ]
 };

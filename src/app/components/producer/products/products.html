@@ -1,5 +1,4 @@
 <div class="products-container">
-
   <!-- Main Content -->
   <main class="main-content">
     <!-- En-tête -->
@@ -50,22 +49,30 @@
           (ngModelChange)="applyFilters()"
           placeholder="Rechercher un produit..."
           class="search-input"
-        >
+        />
       </div>
 
       <div class="filter-controls">
         <div class="filter-group">
           <label>Catégorie:</label>
-          <select [(ngModel)]="selectedCategory" (ngModelChange)="applyFilters()" title="categorie">
+          <select
+            [(ngModel)]="selectedCategory"
+            (ngModelChange)="applyFilters()"
+            title="categorie"
+          >
             <option *ngFor="let cat of categories" [value]="cat.id">
-              {{ cat.name }}
+              {{ cat.icon }} {{ cat.name }}
             </option>
           </select>
         </div>
 
         <div class="filter-group">
           <label>Statut:</label>
-          <select [(ngModel)]="selectedStatus" (ngModelChange)="applyFilters()" title="statut">
+          <select
+            [(ngModel)]="selectedStatus"
+            (ngModelChange)="applyFilters()"
+            title="statut"
+          >
             <option *ngFor="let status of statuses" [value]="status.id">
               {{ status.name }}
             </option>
@@ -74,7 +81,11 @@
 
         <div class="filter-group">
           <label>Trier par:</label>
-          <select [(ngModel)]="sortBy" (ngModelChange)="applyFilters()" title="trie">
+          <select
+            [(ngModel)]="sortBy"
+            (ngModelChange)="applyFilters()"
+            title="trie"
+          >
             <option *ngFor="let option of sortOptions" [value]="option.id">
               {{ option.name }}
             </option>
@@ -88,8 +99,8 @@
       <div class="section-header">
         <h2>Produits ({{ filteredProducts.length }})</h2>
         <div class="actions">
-          <button class="action-btn export">
-            📄 Exporter
+          <button (click)="loadProducts()" class="action-btn refresh">
+            🔄 Actualiser
           </button>
         </div>
       </div>
@@ -99,10 +110,18 @@
         <p>Chargement des produits...</p>
       </div>
 
-      <div *ngIf="!isLoading && filteredProducts.length === 0" class="empty-state">
+      <div
+        *ngIf="!isLoading && filteredProducts.length === 0"
+        class="empty-state"
+      >
         <div class="empty-icon">📦</div>
         <h3>Aucun produit trouvé</h3>
-        <p>Aucun produit ne correspond à vos critères de recherche.</p>
+        <p *ngIf="products.length === 0">
+          Vous n'avez pas encore ajouté de produits.
+        </p>
+        <p *ngIf="products.length > 0">
+          Aucun produit ne correspond à vos critères de recherche.
+        </p>
         <button routerLink="/producer/add-product" class="btn-primary">
           ➕ Ajouter votre premier produit
         </button>
@@ -113,8 +132,19 @@
           <!-- En-tête de la carte -->
           <div class="product-header">
             <div class="product-image">
-              {{ product.image }}
-              <span *ngIf="product.certified" class="certified-badge">✔</span>
+              {{ getCategoryIcon(product.category) }}
+              <span
+                *ngIf="product.isOrganic"
+                class="certified-badge"
+                title="Produit bio"
+                >🌱</span
+              >
+              <span
+                *ngIf="product.certifications?.includes('fairtrade')"
+                class="certified-badge"
+                title="Commerce équitable"
+                >⚖️</span
+              >
             </div>
             <div class="product-meta">
               <span class="category-badge">
@@ -130,10 +160,18 @@
           <div class="product-body">
             <h3 class="product-name">{{ product.name }}</h3>
 
+            <p class="product-description" *ngIf="product.description">
+              {{ product.description.length > 100 ? (product.description |
+              slice:0:100) + '...' : product.description }}
+            </p>
+
             <div class="product-details">
               <div class="detail-row">
                 <span class="detail-label">Prix unitaire:</span>
-                <span class="detail-value">{{ product.price.toLocaleString() }} FCFA</span>
+                <span class="detail-value"
+                  >{{ product.price.toLocaleString() }} FCFA/{{ product.unit
+                  }}</span
+                >
               </div>
               <div class="detail-row">
                 <span class="detail-label">Quantité:</span>
@@ -156,68 +194,78 @@
               </div>
               <div class="stat">
                 <span class="stat-icon">⭐</span>
-                <span class="stat-value">{{ product.rating }}/5</span>
+                <span class="stat-value">{{ product.rating || 0 }}/5</span>
               </div>
               <div class="stat">
                 <span class="stat-icon">📅</span>
                 <span class="stat-value">
-                  {{ product.lastUpdated | date:'dd/MM/yy' }}
+                  {{ product.updatedAt | date:'dd/MM/yy' }}
                 </span>
               </div>
+            </div>
+
+            <!-- Tags de certifications -->
+            <div
+              class="product-tags"
+              *ngIf="product.certifications?.length || product.isOrganic"
+            >
+              <span *ngIf="product.isOrganic" class="tag organic">🌱 Bio</span>
+              <span
+                *ngFor="let cert of product.certifications"
+                [class]="'tag ' + cert"
+              >
+                {{ cert === 'organic' ? '🌱 Bio' : cert === 'local' ? '📍 Local'
+                : cert === 'fairtrade' ? '⚖️ Équitable' : cert === 'seasonal' ?
+                '🌞 Saison' : cert }}
+              </span>
             </div>
           </div>
 
           <!-- Actions -->
           <div class="product-actions">
-            <button class="action-btn edit" (click)="editProduct(product.id)">
+            <button class="action-btn edit" (click)="editProduct(product.id!)">
               ✏️ Modifier
             </button>
-            <button class="action-btn view">
+            <button
+              class="action-btn view"
+              [routerLink]="['/producer/product', product.id]"
+            >
               👁️ Voir
             </button>
             <div class="dropdown">
-              <button class="action-btn more">
-                ⋯
-              </button>
+              <button class="action-btn more">⋯</button>
               <div class="dropdown-menu">
-                <button (click)="duplicateProduct(product.id)" class="dropdown-item">
+                <button
+                  (click)="duplicateProduct(product.id!)"
+                  class="dropdown-item"
+                >
                   📋 Dupliquer
                 </button>
-                <button *ngIf="product.status === 'available'"
-                        (click)="updateStatus(product.id, 'sold_out')"
-                        class="dropdown-item">
+                <button
+                  *ngIf="product.status === 'available'"
+                  (click)="updateStatus(product.id!, 'sold_out')"
+                  class="dropdown-item"
+                >
                   ⏸️ Marquer épuisé
                 </button>
-                <button *ngIf="product.status === 'sold_out'"
-                        (click)="updateStatus(product.id, 'available')"
-                        class="dropdown-item">
+                <button
+                  *ngIf="product.status === 'sold_out'"
+                  (click)="updateStatus(product.id!, 'available')"
+                  class="dropdown-item"
+                >
                   ✅ Réactiver
                 </button>
                 <div class="dropdown-divider"></div>
-                <button (click)="deleteProduct(product.id)" class="dropdown-item delete">
+                <button
+                  (click)="deleteProduct(product.id!)"
+                  class="dropdown-item delete"
+                >
                   🗑️ Supprimer
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Pagination -->
-      <div class="pagination">
-        <button class="page-btn prev" disabled>
-          ← Précédent
-        </button>
-        <div class="page-numbers">
-          <span class="page-number active">1</span>
-          <span class="page-number">2</span>
-          <span class="page-number">3</span>
-          <span class="dots">...</span>
-          <span class="page-number">10</span>
-        </div>
-        <button class="page-btn next">
-          Suivant →
-        </button>
       </div>
     </div>
 
@@ -227,22 +275,19 @@
         <h3>💡 Conseils de gestion</h3>
         <ul>
           <li>Mettez à jour régulièrement les quantités en stock</li>
-          <li>Utilisez des photos de qualité pour vos produits</li>
+          <li>Utilisez des descriptions détaillées pour vos produits</li>
           <li>Activez les certifications pour augmenter la confiance</li>
           <li>Surveillez les ventes pour réapprovisionner à temps</li>
         </ul>
       </div>
-      <div class="tip-card">
-        <h3>📊 Statistiques</h3>
-        <p>Vos produits les plus vendus :</p>
+      <div class="tip-card" *ngIf="getTopSellingProducts().length > 0">
+        <h3>📊 Produits les plus vendus</h3>
         <ol>
-          <li>Tomates Bio - 45 ventes</li>
-          <li>Oignons Rouges - 60 ventes</li>
-          <li>Carottes Fraîches - 28 ventes</li>
+          <li *ngFor="let product of getTopSellingProducts()">
+            {{ product.name }} - {{ product.sales }} ventes
+          </li>
         </ol>
       </div>
     </div>
   </main>
-
-
 </div>
