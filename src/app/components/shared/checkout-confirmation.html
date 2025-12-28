@@ -1,0 +1,52 @@
+<!-- checkout-confirmation.html -->
+<div class="confirmation-container">
+  <div class="confirmation-card">
+    <div class="confirmation-icon">✅</div>
+    <h1>🎉 Commande Confirmée !</h1>
+    <p class="confirmation-subtitle">Merci pour votre commande</p>
+
+    <div class="order-details">
+      <div class="detail-item">
+        <span class="detail-label">Numéro de commande</span>
+        <span class="detail-value">{{ orderNumber }}</span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Total</span>
+        <span class="detail-value">{{ formatPrice(total) }}</span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Articles</span>
+        <span class="detail-value">{{ itemsCount }} produit(s)</span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Statut</span>
+        <span class="detail-value status-pending">En attente de confirmation</span>
+      </div>
+    </div>
+
+    <p class="confirmation-message">
+      Votre commande a été enregistrée avec succès.
+      Vous recevrez une notification lorsque le producteur confirmera votre commande.
+      Vous pouvez suivre l'état de votre commande à tout moment.
+    </p>
+
+    <div class="confirmation-actions">
+      <button class="btn btn-outline" (click)="goToMarket()">
+        🛍️ Continuer mes achats
+      </button>
+      <button class="btn btn-primary" (click)="goToOrders()">
+        📋 Voir mes commandes
+      </button>
+    </div>
+
+    <div class="confirmation-tips">
+      <h3>📌 Prochaines étapes</h3>
+      <ul>
+        <li>✅ Le producteur va confirmer votre commande sous 24h</li>
+        <li>✅ Vous recevrez une notification par SMS/Email</li>
+        <li>✅ Suivez l'état de votre commande en temps réel</li>
+        <li>✅ Contactez le producteur si vous avez des questions</li>
+      </ul>
+    </div>
+  </div>
+</div>

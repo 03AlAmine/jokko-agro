@@ -1,3 +1,4 @@
+// app.routes.ts
 import { Routes } from '@angular/router';
 import {
   authGuard,
@@ -71,9 +72,7 @@ export const routes: Routes = [
   {
     path: 'producer/messages',
     loadComponent: () =>
-      import('./components/producer/messages/messages').then(
-        (m) => m.MessagesComponent
-      ),
+      import('./components/messages/messages').then((m) => m.MessagesComponent),
     canActivate: [producerGuard],
   },
   {
@@ -81,6 +80,14 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./components/producer/reputation/reputation').then(
         (m) => m.ReputationComponent
+      ),
+    canActivate: [producerGuard],
+  },
+  {
+    path: 'producer/tracking',
+    loadComponent: () =>
+      import('./components/orders/order-tracking').then(
+        (m) => m.OrderTrackingComponent
       ),
     canActivate: [producerGuard],
   },
@@ -97,26 +104,37 @@ export const routes: Routes = [
   {
     path: 'buyer/market',
     loadComponent: () =>
-      import('./components/buyer/market/market').then(
-        (m) => m.MarketComponent
-      ),
+      import('./components/buyer/market/market').then((m) => m.MarketComponent),
     canActivate: [buyerGuard],
   },
   {
-  path: 'buyer/scan',
-  loadComponent: () => import('./components/buyer/scan/scan').then(m => m.ScanComponent),
-  canActivate: [buyerGuard]
-},
+    path: 'buyer/scan',
+    loadComponent: () =>
+      import('./components/buyer/scan/scan').then((m) => m.ScanComponent),
+    canActivate: [buyerGuard],
+  },
   {
-  path: 'buyer/cart',
-  loadComponent: () => import('./components/buyer/cart/cart').then(m => m.CartComponent),
-  canActivate: [buyerGuard]
-},
+    path: 'buyer/cart',
+    loadComponent: () =>
+      import('./components/buyer/cart/cart').then((m) => m.CartComponent),
+    canActivate: [buyerGuard],
+  },
   {
-  path: 'buyer/messages',
-  loadComponent: () => import('./components/buyer/messages/messages').then(m => m.MessagesComponent),
-  canActivate: [buyerGuard]
-},
+    path: 'buyer/messages',
+    loadComponent: () =>
+      import('./components/messages/messages').then((m) => m.MessagesComponent),
+    canActivate: [buyerGuard],
+  },
+
+  // Dans app.routes.ts, ajoutez cette route :
+  {
+    path: 'buyer/tracking',
+    loadComponent: () =>
+      import('./components/orders/order-tracking').then(
+        (m) => m.OrderTrackingComponent
+      ),
+    canActivate: [buyerGuard],
+  },
 
   { path: '**', redirectTo: '' },
 ];

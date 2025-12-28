@@ -1,12 +1,16 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { FirebaseService, UserData } from './firebase.service';
+import { FirebaseService, FirebaseUserData } from './firebase.service';
+import { UserData } from './data.interfaces';
 import { getAuth } from 'firebase/auth';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AuthService {
+  updateUserData(userData: FirebaseUserData) {
+    throw new Error('Method not implemented.');
+  }
   private firebaseService = inject(FirebaseService);
   private router = inject(Router);
 
@@ -53,24 +57,18 @@ export class AuthService {
       await this.firebaseService.logout();
       this.router.navigate(['/login']);
     } catch (error) {
-      console.error('Erreur de déconnexion:', error);
       // Rediriger quand même vers login en cas d'erreur
       this.router.navigate(['/login']);
     }
   }
 
-isAuthenticated(): boolean {
-  // Utiliser la méthode directe de Firebase
-  const firebaseAuth = getAuth();
-  const currentUser = firebaseAuth.currentUser;
+  isAuthenticated(): boolean {
+    // Utiliser la méthode directe de Firebase
+    const firebaseAuth = getAuth();
+    const currentUser = firebaseAuth.currentUser;
 
-  console.log('AuthService.isAuthenticated - État Firebase:', {
-    firebaseUser: currentUser?.email,
-    localUser: this.firebaseService.currentUser?.email
-  });
-
-  return !!currentUser;
-}
+    return !!currentUser;
+  }
   getUserRole(): 'producer' | 'buyer' | null {
     return this.firebaseService.getUserRole();
   }

@@ -1,0 +1,471 @@
+<!-- components/orders/order-tracking/order-tracking.html -->
+<div class="order-tracking-container">
+
+  <!-- EN-TÊTE ADAPTÉ AU RÔLE -->
+  <header class="tracking-header">
+    <div class="header-content">
+      <h1>{{ getPageTitle() }}</h1>
+      <p class="subtitle">{{ getPageSubtitle() }}</p>
+    </div>
+
+    <!-- STATISTIQUES -->
+    <div class="header-stats">
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.total }}</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat-item" *ngIf="stats.pending > 0">
+        <span class="stat-value">{{ stats.pending }}</span>
+        <span class="stat-label">En attente</span>
+      </div>
+      <div class="stat-item" *ngIf="stats.delivered > 0">
+        <span class="stat-value">{{ stats.delivered }}</span>
+        <span class="stat-label">Livrées</span>
+      </div>
+      <div class="stat-item" *ngIf="isProducer && stats.totalRevenue > 0">
+        <span class="stat-value">{{ formatPrice(stats.totalRevenue) }}</span>
+        <span class="stat-label">Revenu total</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- BARRE DE FILTRES -->
+  <div class="filters-bar">
+    <!-- Recherche -->
+    <div class="search-container">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="applyFilters()"
+        [placeholder]="isBuyer ? 'Rechercher commande, produit, producteur...' : 'Rechercher commande, produit, client...'"
+        class="search-input"
+        title="Rechercher dans les commandes"
+      />
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-controls">
+      <div class="filter-group">
+        <label>📅 Période</label>
+        <select [(ngModel)]="dateFilter" (ngModelChange)="applyFilters()" title="Filtrer par période">
+          <option *ngFor="let option of dateOptions" [value]="option.id">
+            {{ option.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>📊 Statut</label>
+        <select [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()" title="Filtrer par statut">
+          <option *ngFor="let option of statusOptions" [value]="option.id">
+            {{ option.name }}
+          </option>
+        </select>
+      </div>
+
+      <button class="btn btn-secondary" (click)="resetFilters()">
+        🔄 Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <!-- ONGLETS RAPIDES -->
+  <div class="quick-tabs">
+    <button
+      class="quick-tab"
+      [class.active]="activeTab === 'all'"
+      (click)="setActiveTab('all')"
+    >
+      📋 Toutes ({{ stats.total }})
+    </button>
+    <button
+      class="quick-tab"
+      [class.active]="activeTab === 'pending'"
+      (click)="setActiveTab('pending')"
+    >
+      ⏳ En attente ({{ stats.pending }})
+    </button>
+    <button
+      class="quick-tab"
+      [class.active]="activeTab === 'confirmed'"
+      (click)="setActiveTab('confirmed')"
+    >
+      ✅ Confirmées ({{ stats.confirmed }})
+    </button>
+    <button
+      class="quick-tab"
+      [class.active]="activeTab === 'shipped'"
+      (click)="setActiveTab('shipped')"
+    >
+      🚚 Expédiées ({{ stats.shipped }})
+    </button>
+    <button
+      class="quick-tab"
+      [class.active]="activeTab === 'delivered'"
+      (click)="setActiveTab('delivered')"
+    >
+      📦 Livrées ({{ stats.delivered }})
+    </button>
+    <button
+      class="quick-tab"
+      [class.active]="activeTab === 'completed'"
+      (click)="setActiveTab('completed')"
+    >
+      ⭐ Terminées ({{ stats.completed }})
+    </button>
+  </div>
+
+  <!-- CONTENU PRINCIPAL -->
+  <div class="tracking-content">
+
+    <!-- SIDEBAR (Uniquement visible sur desktop) -->
+    <aside class="tracking-sidebar">
+
+      <!-- Cartes différentes selon le rôle -->
+      <div class="sidebar-card" *ngIf="isBuyer">
+        <h3>ℹ️ Informations Acheteur</h3>
+        <p>Vous pouvez suivre vos commandes ici.</p>
+        <p>Contactez le producteur si besoin.</p>
+        <button routerLink="/buyer/market" class="btn btn-outline">
+          🛍️ Nouvelle commande
+        </button>
+      </div>
+
+      <div class="sidebar-card" *ngIf="isProducer">
+        <h3>📊 Mes Statistiques</h3>
+        <div class="sidebar-stats">
+          <div class="sidebar-stat">
+            <span class="stat-label">Panier moyen</span>
+            <span class="stat-value">{{ formatPrice(stats.averageOrderValue) }}</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="stat-label">Taux de livraison</span>
+            <span class="stat-value">
+              {{ (stats.delivered / stats.total * 100 || 0).toFixed(1) }}%
+            </span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="stat-label">Taux de complétion</span>
+            <span class="stat-value">
+              {{ (stats.completed / stats.total * 100 || 0).toFixed(1) }}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progression des commandes -->
+      <div class="sidebar-card">
+        <h3>📈 Progression</h3>
+        <div class="progress-container">
+          <div class="progress-item" *ngFor="let order of orders | slice:0:3">
+            <div class="progress-order">{{ order.orderNumber }}</div>
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                [style.width.%]="getOrderProgress(order)"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="tracking-main">
+
+      <!-- ÉTAT DE CHARGEMENT -->
+      <div *ngIf="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Chargement de vos commandes...</p>
+      </div>
+
+      <!-- ÉTAT VIDE -->
+      <div *ngIf="!isLoading && filteredOrders.length === 0" class="empty-state">
+        <div class="empty-icon">
+          <span *ngIf="isBuyer">🛒</span>
+          <span *ngIf="isProducer">📭</span>
+        </div>
+        <h3>
+          <span *ngIf="isBuyer">Aucune commande trouvée</span>
+          <span *ngIf="isProducer">Aucune commande trouvée</span>
+        </h3>
+        <p>
+          <span *ngIf="isBuyer">Vous n'avez pas encore passé de commande</span>
+          <span *ngIf="isProducer">Vous n'avez pas encore reçu de commande</span>
+        </p>
+        <button
+          *ngIf="isBuyer"
+          routerLink="/buyer/market"
+          class="btn btn-primary"
+        >
+          🛍️ Découvrir le marché
+        </button>
+        <button
+          *ngIf="isProducer"
+          routerLink="/producer/products"
+          class="btn btn-primary"
+        >
+          📦 Gérer mes produits
+        </button>
+      </div>
+
+      <!-- LISTE DES COMMANDES -->
+      <div *ngIf="!isLoading && filteredOrders.length > 0" class="orders-list">
+
+        <div *ngFor="let order of filteredOrders" class="order-card">
+
+          <!-- EN-TÊTE DE LA CARTE -->
+          <div class="order-header">
+            <div class="order-number">
+              <strong>{{ order.orderNumber }}</strong>
+              <span class="order-date">{{ formatDate(order.orderDate) }}</span>
+            </div>
+            <span class="order-status" [class]="getStatusBadgeClass(order.status)">
+              {{ getStatusIcon(order.status) }}
+              {{ getStatusText(order.status) }}
+            </span>
+          </div>
+
+          <!-- CORPS DE LA CARTE -->
+          <div class="order-body">
+
+            <!-- INFORMATIONS PRODUIT -->
+            <div class="product-section">
+              <div class="product-image">📦</div>
+              <div class="product-info">
+                <h4>{{ order.productName }}</h4>
+                <p class="product-category">{{ order.productCategory }}</p>
+
+                <!-- Informations selon le rôle -->
+                <div class="user-info">
+                  <div *ngIf="isBuyer" class="producer-info">
+                    <span class="producer-name">👨‍🌾 {{ order.producerName }}</span>
+                    <span class="producer-phone">📱 {{ order.producerPhone }}</span>
+                  </div>
+                  <div *ngIf="isProducer" class="buyer-info">
+                    <span class="buyer-name">👤 {{ order.buyerName }}</span>
+                    <span class="buyer-phone">📱 {{ order.buyerPhone }}</span>
+                    <span class="buyer-location">📍 {{ order.buyerLocation }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DÉTAILS DE LA COMMANDE -->
+            <div class="order-details">
+              <div class="detail-row">
+                <div class="detail-item">
+                  <span class="detail-label">Quantité</span>
+                  <span class="detail-value">{{ order.quantity }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Prix unitaire</span>
+                  <span class="detail-value">{{ formatPrice(order.unitPrice) }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Frais livraison</span>
+                  <span class="detail-value">{{ formatPrice(order.deliveryFee) }}</span>
+                </div>
+              </div>
+              <div class="detail-row total-row">
+                <div class="detail-item">
+                  <span class="detail-label">Total</span>
+                  <span class="detail-value total">{{ formatPrice(order.totalAmount) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- TIMELINE DE SUIVI -->
+            <div class="order-timeline">
+              <div class="timeline-step" [class.active]="isTimelineStepActive(order, 0)">
+                <div class="step-icon">📝</div>
+                <div class="step-label">Commandé</div>
+                <div class="step-date" *ngIf="order.orderDate">
+                  {{ formatDate(order.orderDate) }}
+                </div>
+              </div>
+              <div class="timeline-step" [class.active]="isTimelineStepActive(order, 1)">
+                <div class="step-icon">✅</div>
+                <div class="step-label">Confirmé</div>
+              </div>
+              <div class="timeline-step" [class.active]="isTimelineStepActive(order, 2)">
+                <div class="step-icon">🚚</div>
+                <div class="step-label">Expédié</div>
+              </div>
+              <div class="timeline-step" [class.active]="isTimelineStepActive(order, 3)">
+                <div class="step-icon">📦</div>
+                <div class="step-label">Livré</div>
+                <div class="step-date" *ngIf="order.deliveryDate">
+                  {{ formatDate(order.deliveryDate) }}
+                </div>
+              </div>
+              <div class="timeline-step" [class.active]="isTimelineStepActive(order, 4)">
+                <div class="step-icon">⭐</div>
+                <div class="step-label">Terminé</div>
+                <div class="step-date" *ngIf="order.completionDate">
+                  {{ formatDate(order.completionDate) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- ACTIONS -->
+            <div class="order-actions">
+
+              <!-- Actions communes -->
+              <button
+                class="btn btn-outline"
+                (click)="showOrderDetails(order.id)"
+              >
+                👁️ Voir détails
+              </button>
+
+              <!-- Actions spécifiques au producteur -->
+              <div *ngIf="isProducer" class="producer-actions">
+                <select
+                  (change)="updateOrderStatus(order.id, $any($event.target).value)"
+                  class="status-select"
+                  [disabled]="order.status === 'completed' || order.status === 'cancelled'"
+                  title="Changer le statut de la commande"
+                >
+                  <option value="">Changer statut</option>
+                  <option
+                    value="confirmed"
+                    [disabled]="order.status !== 'pending'"
+                  >
+                    ✅ Confirmer
+                  </option>
+                  <option
+                    value="shipped"
+                    [disabled]="order.status !== 'confirmed'"
+                  >
+                    🚚 Expédier
+                  </option>
+                  <option
+                    value="delivered"
+                    [disabled]="order.status !== 'shipped'"
+                  >
+                    📦 Livrer
+                  </option>
+                  <option
+                    value="completed"
+                    [disabled]="order.status !== 'delivered'"
+                  >
+                    ⭐ Terminer
+                  </option>
+                  <option
+                    value="cancelled"
+                    [disabled]="order.status === 'completed'"
+                  >
+                    ❌ Annuler
+                  </option>
+                </select>
+
+                <button class="btn-icon" title="Contacter client">
+                  💬
+                </button>
+              </div>
+
+              <!-- Actions spécifiques à l'acheteur -->
+              <div *ngIf="isBuyer" class="buyer-actions">
+                <button
+                  class="btn btn-secondary"
+                  *ngIf="order.status === 'delivered'"
+                >
+                  ⭐ Évaluer
+                </button>
+                <button class="btn-icon" title="Contacter producteur">
+                  💬
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL DÉTAILS COMMANDE -->
+  <div *ngIf="selectedOrder" class="modal-overlay" (click)="closeOrderDetails()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📋 Détails de la commande</h2>
+        <button class="modal-close" (click)="closeOrderDetails()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="selectedOrder">
+          <div class="modal-section">
+            <h3>🛒 Commande {{ selectedOrder.orderNumber }}</h3>
+            <p><strong>Date:</strong> {{ formatDate(selectedOrder.orderDate) }}</p>
+            <p><strong>Statut:</strong>
+              <span [class]="getStatusBadgeClass(selectedOrder.status)">
+                {{ getStatusText(selectedOrder.status) }}
+              </span>
+            </p>
+          </div>
+
+          <div class="modal-section" *ngIf="isBuyer">
+            <h3>👨‍🌾 Producteur</h3>
+            <p><strong>Nom:</strong> {{ selectedOrder.producerName }}</p>
+            <p><strong>Téléphone:</strong> {{ selectedOrder.producerPhone }}</p>
+          </div>
+
+          <div class="modal-section" *ngIf="isProducer">
+            <h3>👤 Client</h3>
+            <p><strong>Nom:</strong> {{ selectedOrder.buyerName }}</p>
+            <p><strong>Téléphone:</strong> {{ selectedOrder.buyerPhone }}</p>
+            <p><strong>Localisation:</strong> {{ selectedOrder.buyerLocation }}</p>
+            <p *ngIf="selectedOrder.deliveryAddress">
+              <strong>Adresse:</strong> {{ selectedOrder.deliveryAddress }}
+            </p>
+          </div>
+
+          <div class="modal-section">
+            <h3>📦 Produit</h3>
+            <p><strong>Nom:</strong> {{ selectedOrder.productName }}</p>
+            <p><strong>Catégorie:</strong> {{ selectedOrder.productCategory }}</p>
+            <p><strong>Quantité:</strong> {{ selectedOrder.quantity }}</p>
+            <p><strong>Prix unitaire:</strong> {{ formatPrice(selectedOrder.unitPrice) }}</p>
+          </div>
+
+          <div class="modal-section">
+            <h3>💰 Montant</h3>
+            <p><strong>Sous-total:</strong> {{ formatPrice(selectedOrder.totalAmount - selectedOrder.deliveryFee) }}</p>
+            <p><strong>Frais de livraison:</strong> {{ formatPrice(selectedOrder.deliveryFee) }}</p>
+            <p><strong class="total">Total:</strong> {{ formatPrice(selectedOrder.totalAmount) }}</p>
+          </div>
+
+          <div class="modal-section">
+            <h3>📊 Informations</h3>
+            <p><strong>Méthode de paiement:</strong>
+              {{ getPaymentMethodText(selectedOrder.paymentMethod) }}
+            </p>
+            <p><strong>Type de livraison:</strong>
+              {{ getDeliveryTypeText(selectedOrder.deliveryType) }}
+            </p>
+            <p *ngIf="selectedOrder.notes">
+              <strong>Notes:</strong> {{ selectedOrder.notes }}
+            </p>
+          </div>
+
+          <div class="modal-section" *ngIf="selectedOrder.rating">
+            <h3>⭐ Évaluation</h3>
+            <p><strong>Note:</strong> {{ selectedOrder.rating }}/5</p>
+            <p *ngIf="selectedOrder.review">
+              <strong>Avis:</strong> "{{ selectedOrder.review }}"
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeOrderDetails()">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

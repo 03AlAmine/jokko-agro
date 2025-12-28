@@ -1,80 +1,68 @@
 <div class="sales-container">
-
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- En-tête -->
-    <div class="page-header">
-      <div class="header-left">
-        <h1><span class="header-icon">💰</span> Historique des ventes</h1>
-        <p class="subtitle">Suivez vos performances et vos revenus</p>
+  <!-- En-tête -->
+  <header class="sales-header">
+    <div class="header-content">
+      <div class="header-title">
+        <h1>💰 Historique des Ventes</h1>
+        <p class="subtitle">Suivez vos performances et gérez vos commandes</p>
       </div>
-      <div class="header-right">
-        <button class="export-btn" (click)="exportSales()">
-          <span class="btn-icon">📄</span> Exporter
+      <div class="header-actions">
+        <button
+          class="btn btn-primary"
+          (click)="exportSales()"
+          [disabled]="isExporting || filteredSales.length === 0"
+        >
+          <span class="btn-icon">{{ isExporting ? '⏳' : '📄' }}</span>
+          {{ isExporting ? 'Export en cours...' : 'Exporter CSV' }}
         </button>
       </div>
     </div>
+  </header>
 
-    <!-- Statistiques principales -->
-    <div class="main-stats">
-      <div class="main-stat-card revenue">
-        <div class="stat-icon">💰</div>
-        <div class="stat-content">
-          <h3>{{ getTotalRevenue().toLocaleString() }} FCFA</h3>
-          <p>Revenu total</p>
-          <span class="trend up">↑ 15% ce mois</span>
+  <!-- Statistiques principales -->
+  <section class="stats-section" *ngIf="!isLoading">
+    <div class="stats-grid">
+      <div
+        *ngFor="let card of statCards"
+        class="stat-card"
+        [style.borderLeftColor]="card.color"
+      >
+        <div class="stat-icon" [style.backgroundColor]="card.color + '20'">
+          {{ card.icon }}
         </div>
-      </div>
-
-      <div class="main-stat-card sales">
-        <div class="stat-icon">📈</div>
         <div class="stat-content">
-          <h3>{{ sales.length }}</h3>
-          <p>Commandes totales</p>
-          <span class="trend up">↑ 20% ce mois</span>
-        </div>
-      </div>
-
-      <div class="main-stat-card rating">
-        <div class="stat-icon">⭐</div>
-        <div class="stat-content">
-          <h3>{{ getAverageRating() }}/5</h3>
-          <p>Note moyenne</p>
-          <span class="trend up">↑ 0.3 ce mois</span>
-        </div>
-      </div>
-
-      <div class="main-stat-card completion">
-        <div class="stat-icon">✅</div>
-        <div class="stat-content">
-          <h3>{{ getCompletionRate() }}%</h3>
-          <p>Taux de complétion</p>
-          <span class="trend down">↓ 2% ce mois</span>
+          <div class="stat-value">{{ formatStatValue(card) }}</div>
+          <div class="stat-label">{{ card.label }}</div>
+          <div
+            class="stat-trend"
+            [class.trend-up]="card.trend === 'up'"
+            [class.trend-down]="card.trend === 'down'"
+          >
+            {{ card.trend === 'up' ? '↑' : '↓' }} {{ abs(card.change) }}%
+          </div>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Barre de filtres -->
-    <div class="filters-section">
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
+  <!-- Filtres -->
+  <section class="filters-section">
+    <div class="filters-card">
+      <div class="search-container">
+        <div class="search-icon">🔍</div>
         <input
           type="text"
-          [(ngModel)]="searchQuery"
+          [(ngModel)]="filter.searchQuery"
           (ngModelChange)="applyFilters()"
-          placeholder="Rechercher une commande, produit ou client..."
+          placeholder="Rechercher commande, produit ou client..."
           class="search-input"
         />
       </div>
 
-      <div class="filter-controls">
+      <div class="filters-grid">
         <div class="filter-group">
-          <label>Période:</label>
-          <select
-            [(ngModel)]="selectedPeriod"
-            (ngModelChange)="applyFilters()"
-            title="periode"
-          >
+          <label>📅 Période</label>
+          <select [(ngModel)]="filter.period" (ngModelChange)="applyFilters()" title="période">
             <option *ngFor="let period of periods" [value]="period.id">
               {{ period.name }}
             </option>
@@ -82,12 +70,8 @@
         </div>
 
         <div class="filter-group">
-          <label>Statut:</label>
-          <select
-            [(ngModel)]="selectedStatus"
-            (ngModelChange)="applyFilters()"
-            title="statut"
-          >
+          <label>📊 Statut</label>
+          <select [(ngModel)]="filter.status" (ngModelChange)="applyFilters()" title="statut">
             <option *ngFor="let status of statuses" [value]="status.id">
               {{ status.name }}
             </option>
@@ -95,11 +79,11 @@
         </div>
 
         <div class="filter-group">
-          <label>Paiement:</label>
+          <label>💳 Paiement</label>
           <select
-            [(ngModel)]="selectedPayment"
+            [(ngModel)]="filter.paymentMethod"
             (ngModelChange)="applyFilters()"
-            title="paie"
+            title="méthode de paiement"
           >
             <option *ngFor="let method of paymentMethods" [value]="method.id">
               {{ method.name }}
@@ -107,237 +91,314 @@
           </select>
         </div>
 
-        <button class="clear-filters" (click)="clearFilters()">
+        <div class="filter-group">
+          <label>🚚 Livraison</label>
+          <select
+            [(ngModel)]="filter.deliveryType"
+            (ngModelChange)="applyFilters()"
+            title="livraison"
+          >
+            <option *ngFor="let type of deliveryTypes" [value]="type.id">
+              {{ type.name }}
+            </option>
+          </select>
+        </div>
+
+        <button class="btn btn-secondary" (click)="clearFilters()">
           ✕ Effacer filtres
         </button>
       </div>
     </div>
+  </section>
 
-    <!-- Statistiques détaillées -->
-    <div class="detailed-stats">
-      <h2 class="section-title">📊 Statistiques détaillées</h2>
-
-      <div class="stats-grid">
-        <div *ngFor="let stat of stats" class="stat-card">
-          <div class="stat-header">
-            <div
-              class="stat-icon-box"
-              [style.backgroundColor]="stat.color + '20'"
-            >
-              {{ stat.icon }}
-            </div>
-            <div
-              class="trend-indicator"
-              [class.up]="stat.trend === 'up'"
-              [class.down]="stat.trend === 'down'"
-            >
-              {{ stat.trend === 'up' ? '↑' : '↓' }} {{ stat.change }}%
-            </div>
-          </div>
-          <div class="stat-value">{{ stat.value.toLocaleString() }}</div>
-          <div class="stat-label">{{ stat.label }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Graphiques -->
-    <div class="charts-section">
+  <!-- Graphiques et insights -->
+  <section class="insights-section" *ngIf="!isLoading && stats">
+    <div class="insights-grid">
+      <!-- Graphique revenus -->
       <div class="chart-card">
-        <h3>📈 Évolution des revenus</h3>
-        <div class="chart-placeholder">
-          <p>Graphique des revenus (FCFA)</p>
-          <div class="chart-bars">
-            <div *ngFor="let month of monthlyStats" class="chart-bar">
+        <div class="chart-header">
+          <h3>📈 Évolution des revenus</h3>
+          <span class="chart-subtitle"
+            >Derniers {{ stats.monthlyRevenue.length }} mois</span
+          >
+        </div>
+        <div class="chart-container">
+          <div class="chart-bars" *ngIf="stats.monthlyRevenue.length > 0">
+            <div
+              *ngFor="let month of stats.monthlyRevenue"
+              class="chart-bar-group"
+            >
               <div class="bar-label">{{ month.month }}</div>
               <div class="bar-container">
                 <div
                   class="bar-fill"
-                  [style.height]="(month.revenue / 1000000 * 100) + '%'"
-                  [style.backgroundColor]="'#2e7d32'"
+                  [style.height]="(month.revenue / (getMaxRevenue() || 1) * 100) + '%'"
+                  [style.backgroundColor]="'#4CAF50'"
                 ></div>
               </div>
               <div class="bar-value">
-                {{ (month.revenue / 1000).toFixed(0) }}K
+                {{ (month.revenue / 1000).toFixed(0) }}K FCFA
               </div>
             </div>
+          </div>
+          <div *ngIf="stats.monthlyRevenue.length === 0" class="chart-empty">
+            <p>Aucune donnée disponible</p>
           </div>
         </div>
       </div>
 
-      <div class="chart-card">
-        <h3>📊 Top produits</h3>
-        <div class="top-products">
+      <!-- Top produits -->
+      <div class="insight-card">
+        <div class="insight-header">
+          <h3>🏆 Top produits</h3>
+          <span class="insight-subtitle">Par revenus générés</span>
+        </div>
+        <div class="insight-list">
           <div
-            *ngFor="let product of topProducts; let i = index"
-            class="product-row"
+            *ngFor="let product of stats.topProducts; let i = index"
+            class="insight-item"
           >
-            <div class="product-rank">#{{ i + 1 }}</div>
-            <div class="product-name">{{ product.name }}</div>
-            <div class="product-sales">{{ product.sales }} ventes</div>
-            <div class="product-revenue">
-              {{ product.revenue.toLocaleString() }} FCFA
+            <div class="item-rank">#{{ i + 1 }}</div>
+            <div class="item-info">
+              <div class="item-name">{{ product.productName }}</div>
+              <div class="item-meta">{{ product.salesCount }} ventes</div>
+            </div>
+            <div class="item-value">{{ formatPrice(product.revenue) }}</div>
+          </div>
+          <div *ngIf="stats.topProducts.length === 0" class="insight-empty">
+            <p>Aucun produit vendu</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistiques détaillées -->
+      <div class="stats-detail-card">
+        <div class="stats-detail-header">
+          <h3>📊 Statistiques détaillées</h3>
+        </div>
+        <div class="stats-detail-grid">
+          <div class="detail-item">
+            <div class="detail-label">Meilleur jour</div>
+            <div class="detail-value">{{ stats.bestSellingDay }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Heure de pointe</div>
+            <div class="detail-value">{{ stats.peakHour }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Tendance mensuelle</div>
+            <div
+              class="detail-value"
+              [class.positive]="isPositiveTrend()"
+              [class.negative]="isNegativeTrend()"
+            >
+              {{ formatTrend(stats.monthlyTrend) }}
+            </div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Commandes actives</div>
+            <div class="detail-value">{{ stats.activeOrders }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Paiement le plus utilisé</div>
+            <div class="detail-value">{{ getMostUsedPaymentMethod() }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Revenu prédit</div>
+            <div class="detail-value">
+              {{ formatPrice(stats.predictedRevenue || 0) }}
             </div>
           </div>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Liste des ventes -->
-    <div class="sales-section">
-      <div class="section-header">
-        <h2>Historique des commandes ({{ filteredSales.length }})</h2>
-        <div class="summary">
-          <span class="summary-value">
-            {{ getTotalFilteredRevenue() }} FCFA
-          </span>
-
-          <span class="summary-item">
-            <span class="summary-label">Commandes:</span>
-            <span class="summary-value">{{ filteredSales.length }}</span>
-          </span>
-        </div>
+  <!-- Liste des ventes -->
+  <section class="sales-list-section">
+    <div class="section-header">
+      <h2>📋 Commandes ({{ filteredSales.length }})</h2>
+      <div class="section-summary">
+        <span class="summary-total">
+          Total: {{ formatPrice(totalFilteredSales) }}
+        </span>
+        <span class="summary-count">{{ filteredSales.length }} commandes</span>
       </div>
+    </div>
 
-      <div *ngIf="isLoading" class="loading">
-        <div class="spinner"></div>
-        <p>Chargement des ventes...</p>
-      </div>
+    <!-- États de chargement et vide -->
+    <div *ngIf="isLoading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Chargement des ventes...</p>
+    </div>
 
-      <div *ngIf="!isLoading && filteredSales.length === 0" class="empty-state">
-        <div class="empty-icon">💰</div>
-        <h3>Aucune vente trouvée</h3>
-        <p>Aucune vente ne correspond à vos critères de recherche.</p>
-      </div>
+    <div *ngIf="!isLoading && filteredSales.length === 0" class="empty-state">
+      <div class="empty-icon">📭</div>
+      <h3>Aucune vente trouvée</h3>
+      <p>Modifiez vos filtres ou attendez de nouvelles commandes</p>
+      <button class="btn btn-primary" (click)="clearFilters()">
+        Réinitialiser les filtres
+      </button>
+    </div>
 
-      <div class="sales-list">
-        <div *ngFor="let sale of filteredSales" class="sale-card">
-          <div class="sale-header">
-            <div class="sale-info">
-              <div class="sale-number">{{ sale.orderNumber }}</div>
-              <div class="sale-date">
-                {{ sale.date | date:'dd/MM/yyyy HH:mm' }}
+    <!-- Tableau des ventes -->
+    <div
+      *ngIf="!isLoading && filteredSales.length > 0"
+      class="sales-table-container"
+    >
+      <table class="sales-table">
+        <thead>
+          <tr>
+            <th>Commande</th>
+            <th>Date</th>
+            <th>Produit</th>
+            <th>Client</th>
+            <th>Quantité</th>
+            <th>Montant</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let sale of paginatedSales">
+            <td class="order-number">
+              <strong>{{ sale.orderNumber }}</strong>
+            </td>
+            <td class="order-date">{{ formatDate(sale.orderDate) }}</td>
+            <td class="product-info">
+              <div class="product-name">{{ sale.productName }}</div>
+              <div class="product-category">{{ sale.productCategory }}</div>
+            </td>
+            <td class="customer-info">
+              <div class="customer-name">{{ sale.buyerName }}</div>
+              <div class="customer-phone">{{ sale.buyerPhone }}</div>
+            </td>
+            <td class="quantity">
+              {{ sale.quantity }} {{ getProductUnit(sale) }}
+            </td>
+            <td class="amount">
+              <div class="amount-total">
+                {{ formatPrice(sale.totalAmount) }}
               </div>
-            </div>
-            <div class="sale-status">
+              <div class="amount-unit">
+                {{ formatPrice(sale.unitPrice) }}/{{ getProductUnit(sale) }}
+              </div>
+            </td>
+            <td class="status-cell">
               <span [class]="'status-badge ' + getStatusClass(sale.status)">
                 {{ getStatusText(sale.status) }}
               </span>
-            </div>
-          </div>
-
-          <div class="sale-body">
-            <div class="sale-product">
-              <div class="product-name">{{ sale.product }}</div>
-              <div class="product-quantity">× {{ sale.quantity }}</div>
-            </div>
-
-            <div class="sale-details">
-              <div class="detail-group">
-                <span class="detail-label">Client:</span>
-                <span class="detail-value">{{ sale.buyer.name }}</span>
-              </div>
-              <div class="detail-group">
-                <span class="detail-label">Téléphone:</span>
-                <span class="detail-value">{{ sale.buyer.phone }}</span>
-              </div>
-              <div class="detail-group">
-                <span class="detail-label">Livraison:</span>
-                <span class="detail-value"
-                  >{{ getDeliveryTypeText(sale.deliveryType) }}</span
+            </td>
+            <td class="actions-cell">
+              <div class="actions-group">
+                <button
+                  class="btn-icon"
+                  (click)="viewSaleDetails(sale)"
+                  title="Voir détails"
                 >
-              </div>
-              <div class="detail-group">
-                <span class="detail-label">Paiement:</span>
-                <span class="detail-value"
-                  >{{ getPaymentMethodText(sale.paymentMethod) }}</span
-                >
-              </div>
-            </div>
-
-            <div class="sale-amount">
-              <div class="unit-price">
-                {{ sale.unitPrice.toLocaleString() }} FCFA/u
-              </div>
-              <div class="total-amount">
-                {{ sale.totalAmount.toLocaleString() }} FCFA
-              </div>
-            </div>
-          </div>
-
-          <div class="sale-footer">
-            <div class="sale-actions">
-              <button class="action-btn view" (click)="viewSaleDetails(sale)">
-                👁️ Détails
-              </button>
-
-              <div
-                class="status-actions"
-                *ngIf="sale.status !== 'completed' && sale.status !== 'cancelled'"
-              >
+                  👁️
+                </button>
                 <select
                   (change)="updateSaleStatus(sale.id, $any($event.target).value)"
                   class="status-select"
-                  title="statut"
+                  *ngIf="sale.status !== 'completed' && sale.status !== 'cancelled'"
+                  title="Changer statut"
                 >
-                  <option value="">Changer statut</option>
-                  <option value="completed">Marquer comme complété</option>
-                  <option value="shipped">Marquer comme expédié</option>
-                  <option value="cancelled">Annuler la commande</option>
+                  <option value="">Actions</option>
+                  <option value="confirmed">Confirmer</option>
+                  <option value="shipped">Expédier</option>
+                  <option value="delivered">Livrer</option>
+                  <option value="completed">Terminer</option>
+                  <option value="cancelled">Annuler</option>
                 </select>
               </div>
-            </div>
-
-            <div class="sale-rating" *ngIf="sale.rating">
-              <div class="stars">
-                <span
-                  *ngFor="let star of [1,2,3,4,5]"
-                  class="star"
-                  [class.filled]="star <= sale.rating"
-                  >★</span
-                >
-              </div>
-              <div class="review" *ngIf="sale.review">"{{ sale.review }}"</div>
-            </div>
-          </div>
-        </div>
-      </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <!-- Pagination -->
-      <div class="pagination">
-        <button class="page-btn prev" disabled>← Précédent</button>
-        <div class="page-numbers">
-          <span class="page-number active">1</span>
-          <span class="page-number">2</span>
-          <span class="page-number">3</span>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button
+          class="pagination-btn"
+          (click)="prevPage()"
+          [disabled]="currentPage === 1"
+        >
+          ← Précédent
+        </button>
+
+        <div class="pagination-numbers">
+          <button
+            *ngFor="let page of getPageNumbers()"
+            class="pagination-number"
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)"
+          >
+            {{ page }}
+          </button>
         </div>
-        <button class="page-btn next">Suivant →</button>
+
+        <button
+          class="pagination-btn"
+          (click)="nextPage()"
+          [disabled]="currentPage === totalPages"
+        >
+          Suivant →
+        </button>
       </div>
     </div>
+  </section>
 
-    <!-- Insights -->
-    <div class="insights-section">
-      <div class="insight-card">
-        <h3>💡 Insights</h3>
+  <!-- Insights et recommandations -->
+  <section class="recommendations-section" *ngIf="!isLoading && stats">
+    <div class="recommendations-grid">
+      <div class="recommendation-card">
+        <div class="recommendation-icon">💡</div>
+        <h4>Insights</h4>
         <ul>
-          <li>Vos Tomates Bio sont votre produit le plus populaire</li>
-          <li>
-            Les paiements par Orange Money représentent 60% de vos transactions
+          <li *ngIf="stats.topProducts.length > 0">
+            <strong>{{ stats.topProducts[0].productName }}</strong> est votre
+            produit le plus vendu
           </li>
-          <li>La livraison est 2x plus populaire que le retrait sur place</li>
-          <li>Vos meilleurs clients viennent de Dakar Plateau</li>
+          <li>
+            <strong>{{ getMostUsedPaymentMethod() }}</strong> est la méthode de
+            paiement préférée
+          </li>
+          <li *ngIf="stats.topBuyers.length > 0">
+            <strong>{{ stats.topBuyers[0].buyerName }}</strong> est votre
+            meilleur client
+          </li>
+          <li>
+            Taux de complétion:
+            <strong>{{ stats.completionRate.toFixed(1) }}%</strong>
+          </li>
         </ul>
       </div>
-      <div class="insight-card">
-        <h3>🎯 Recommandations</h3>
+
+      <div class="recommendation-card">
+        <div class="recommendation-icon">🎯</div>
+        <h4>Recommandations</h4>
         <ul>
-          <li>Augmentez votre stock de Tomates Bio</li>
-          <li>Proposez des promotions sur les Carottes</li>
-          <li>Activez plus de certifications pour augmenter les prix</li>
-          <li>Améliorez vos délais de livraison pour augmenter les notes</li>
+          <li>Augmentez le stock de vos produits populaires</li>
+          <li>Proposez des promotions sur les produits moins vendus</li>
+          <li>Améliorez vos délais de livraison</li>
+          <li>Demandez des évaluations après chaque vente</li>
+        </ul>
+      </div>
+
+      <div class="recommendation-card">
+        <div class="recommendation-icon">📈</div>
+        <h4>Objectifs</h4>
+        <ul>
+          <li>
+            Atteindre {{ formatPrice((stats.totalRevenue || 0) * 1.2) }} de
+            revenus ce mois
+          </li>
+          <li>Augmenter le taux de complétion à 95%</li>
+          <li>Obtenir une note moyenne de 4.5/5</li>
+          <li>Réduire les commandes annulées à moins de 2%</li>
         </ul>
       </div>
     </div>
-  </main>
-
-
+  </section>
 </div>

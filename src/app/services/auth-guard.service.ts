@@ -7,11 +7,7 @@ export const authGuard: CanActivateFn = () => {
   const router = inject(Router);
   const currentUrl = router.url;
 
-  console.log('authGuard - Exécution:', {
-    isAuthenticated: authService.isAuthenticated(),
-    userRole: authService.getUserRole(),
-    currentUrl
-  });
+
 
   // À ce stade, Firebase devrait être initialisé
   if (!authService.isAuthenticated()) {
@@ -44,10 +40,7 @@ export const producerGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  console.log('producerGuard - Exécution:', {
-    isAuthenticated: authService.isAuthenticated(),
-    userRole: authService.getUserRole()
-  });
+
 
   if (!authService.isAuthenticated()) {
     router.navigate(['/login']);
@@ -66,10 +59,6 @@ export const buyerGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  console.log('buyerGuard - Exécution:', {
-    isAuthenticated: authService.isAuthenticated(),
-    userRole: authService.getUserRole()
-  });
 
   if (!authService.isAuthenticated()) {
     router.navigate(['/login']);

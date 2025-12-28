@@ -6,6 +6,8 @@ export interface CartItem {
   productId: string;
   name: string;
   producer: string;
+  producerId: string; // Ajoutez cette ligne
+  producerName: string; // Renommez si nécessaire
   price: number;
   unit: string;
   quantity: number;
@@ -25,31 +27,44 @@ export interface CartItem {
 }
 
 export interface DeliveryOption {
+  features: any;
+  availableSlots: any;
+  cheapest: any;
+  fastest: any;
+  recommended: any;
   id: string;
   name: string;
   type: 'pickup' | 'delivery';
   price: number;
   time: string;
   description: string;
+  minAmount?: number;
+  maxAmount?: number;
 }
 
 export interface PaymentMethod {
+  promo: any;
+  recommended: any;
   id: string;
   name: string;
   icon: string;
   description: string;
   fee: number;
+  minAmount?: number;
+  maxAmount?: number;
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class CartService {
   private cartItems: CartItem[] = [];
   private readonly CART_STORAGE_KEY = 'jokko_agro_cart';
+  private savedItems: CartItem[] = [];
 
   constructor(private router: Router) {
     this.loadCartFromStorage();
+    this.loadSavedItems();
   }
 
   // Charger le panier depuis localStorage
@@ -65,6 +80,30 @@ export class CartService {
     }
   }
 
+  // Charger les items sauvegardés
+  private loadSavedItems(): void {
+    const storedSavedItems = localStorage.getItem('jokko_agro_saved_items');
+    if (storedSavedItems) {
+      try {
+        this.savedItems = JSON.parse(storedSavedItems);
+      } catch (error) {
+        console.error(
+          'Erreur lors du chargement des items sauvegardés:',
+          error
+        );
+        this.savedItems = [];
+      }
+    }
+  }
+
+  // Sauvegarder les items sauvegardés
+  private saveSavedItems(): void {
+    localStorage.setItem(
+      'jokko_agro_saved_items',
+      JSON.stringify(this.savedItems)
+    );
+  }
+
   // Sauvegarder le panier dans localStorage
   private saveCartToStorage(): void {
     localStorage.setItem(this.CART_STORAGE_KEY, JSON.stringify(this.cartItems));
@@ -73,11 +112,13 @@ export class CartService {
   // Ajouter un produit au panier
   addToCart(product: any, quantity: number = 1): void {
     // Générer un ID unique pour l'item du panier
-    const cartItemId = `cart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const cartItemId = `cart_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
 
     // Vérifier si le produit existe déjà dans le panier
     const existingItemIndex = this.cartItems.findIndex(
-      item => item.productId === product.id
+      (item) => item.productId === product.id
     );
 
     if (existingItemIndex !== -1) {
@@ -96,7 +137,10 @@ export class CartService {
         id: cartItemId,
         productId: product.id || '',
         name: product.name,
-        producer: product.producer || product.producerName || 'Producteur',
+        producer: product.producerName || product.producer || 'Producteur',
+        producerId: product.producerId || '', // ← IMPORTANT: utiliser le vrai ID
+        producerName: product.producerName || product.producer || 'Producteur',
+        producerPhone: product.producerPhone || product.contactPhone || '', // ← AJOUTER
         price: product.price,
         unit: product.unit,
         quantity: Math.max(quantity, product.minOrderQuantity || 1),
@@ -104,20 +148,18 @@ export class CartService {
         image: product.displayImage || product.image || '📦',
         certified: product.certified || false,
         organic: product.organic || product.isOrganic || false,
-        deliveryType: 'delivery', // Par défaut
-        deliveryFee: 500, // Frais de livraison par défaut
+        deliveryType: 'delivery',
+        deliveryFee: 500,
         selected: true,
         category: product.category,
         location: product.location,
-        producerPhone: product.contactPhone || product.producerPhone,
         minOrderQuantity: product.minOrderQuantity || 1,
-        stock: product.stock || product.quantity
+        stock: product.stock || product.quantity,
       };
 
       this.cartItems.push(cartItem);
+      this.saveCartToStorage();
     }
-
-    this.saveCartToStorage();
   }
 
   // Obtenir tous les items du panier
@@ -127,7 +169,7 @@ export class CartService {
 
   // Mettre à jour la quantité d'un item
   updateQuantity(itemId: string, quantity: number): void {
-    const item = this.cartItems.find(i => i.id === itemId);
+    const item = this.cartItems.find((i) => i.id === itemId);
     if (item) {
       if (quantity >= 1 && quantity <= item.maxQuantity) {
         item.quantity = quantity;
@@ -138,13 +180,32 @@ export class CartService {
 
   // Retirer un item du panier
   removeItem(itemId: string): void {
-    this.cartItems = this.cartItems.filter(item => item.id !== itemId);
+    this.cartItems = this.cartItems.filter((item) => item.id !== itemId);
     this.saveCartToStorage();
+  }
+
+  // Sauvegarder un item pour plus tard
+  saveItemForLater(item: CartItem): void {
+    this.savedItems.push(item);
+    this.saveSavedItems();
+  }
+
+  // Obtenir les items sauvegardés
+  getSavedItems(): CartItem[] {
+    return [...this.savedItems];
+  }
+
+  // Restaurer un item sauvegardé
+  restoreSavedItem(item: CartItem): void {
+    this.cartItems.push(item);
+    this.savedItems = this.savedItems.filter((i) => i.id !== item.id);
+    this.saveCartToStorage();
+    this.saveSavedItems();
   }
 
   // Toggle la sélection d'un item
   toggleSelectItem(itemId: string): void {
-    const item = this.cartItems.find(i => i.id === itemId);
+    const item = this.cartItems.find((i) => i.id === itemId);
     if (item) {
       item.selected = !item.selected;
       this.saveCartToStorage();
@@ -153,29 +214,35 @@ export class CartService {
 
   // Sélectionner/désélectionner tous les items
   selectAllItems(select: boolean = true): void {
-    this.cartItems.forEach(item => item.selected = select);
+    this.cartItems.forEach((item) => (item.selected = select));
     this.saveCartToStorage();
   }
 
   // Mettre à jour les notes d'un item
   updateItemNotes(itemId: string, notes: string): void {
-    const item = this.cartItems.find(i => i.id === itemId);
+    const item = this.cartItems.find((i) => i.id === itemId);
     if (item) {
       item.notes = notes;
       this.saveCartToStorage();
     }
   }
 
+  // Supprimer les items sélectionnés
+  removeSelectedItems(): void {
+    this.cartItems = this.cartItems.filter((item) => !item.selected);
+    this.saveCartToStorage();
+  }
+
   // Calculer le sous-total
   getSubtotal(): number {
     return this.cartItems
-      .filter(item => item.selected)
-      .reduce((total, item) => total + (item.price * item.quantity), 0);
+      .filter((item) => item.selected)
+      .reduce((total, item) => total + item.price * item.quantity, 0);
   }
 
   // Calculer le nombre d'items sélectionnés
   getSelectedItemsCount(): number {
-    return this.cartItems.filter(item => item.selected).length;
+    return this.cartItems.filter((item) => item.selected).length;
   }
 
   // Vérifier si le panier est vide
@@ -201,7 +268,6 @@ export class CartService {
 
   // Afficher une notification
   private showNotification(message: string): void {
-    // Vous pouvez utiliser un service de notification ou un simple alert
     console.log('Notification:', message);
 
     // Créer une notification toast
@@ -233,7 +299,9 @@ export class CartService {
     document.body.appendChild(toast);
 
     setTimeout(() => {
-      document.body.removeChild(toast);
+      if (toast.parentNode === document.body) {
+        document.body.removeChild(toast);
+      }
     }, 3000);
   }
 
@@ -246,7 +314,12 @@ export class CartService {
         type: 'pickup',
         price: 0,
         time: '24/7',
-        description: 'Retirez votre commande directement chez le producteur'
+        description: 'Retirez votre commande directement chez le producteur',
+        features: undefined,
+        availableSlots: undefined,
+        cheapest: undefined,
+        fastest: undefined,
+        recommended: undefined,
       },
       {
         id: 'delivery_1',
@@ -254,7 +327,12 @@ export class CartService {
         type: 'delivery',
         price: 1000,
         time: '24-48h',
-        description: 'Livraison à domicile dans toute la ville'
+        description: 'Livraison à domicile dans toute la ville',
+        features: undefined,
+        availableSlots: undefined,
+        cheapest: undefined,
+        fastest: undefined,
+        recommended: undefined,
       },
       {
         id: 'delivery_2',
@@ -262,8 +340,13 @@ export class CartService {
         type: 'delivery',
         price: 2000,
         time: '2-4h',
-        description: 'Livraison rapide pour les commandes urgentes'
-      }
+        description: 'Livraison rapide pour les commandes urgentes',
+        features: undefined,
+        availableSlots: undefined,
+        cheapest: undefined,
+        fastest: undefined,
+        recommended: undefined,
+      },
     ];
   }
 
@@ -274,29 +357,37 @@ export class CartService {
         name: 'Wave',
         icon: '🌊',
         description: 'Paiement mobile instantané',
-        fee: 0
+        fee: 0,
+        promo: undefined,
+        recommended: undefined,
       },
       {
         id: 'orange_money',
         name: 'Orange Money',
         icon: '🟠',
         description: 'Paiement par Orange Money',
-        fee: 50
+        fee: 50,
+        promo: undefined,
+        recommended: undefined,
       },
       {
         id: 'free_money',
         name: 'Free Money',
         icon: '🟡',
         description: 'Paiement par Free Money',
-        fee: 50
+        fee: 50,
+        promo: undefined,
+        recommended: undefined,
       },
       {
         id: 'cash',
         name: 'Paiement à la livraison',
         icon: '💵',
         description: 'Paiement en espèces à la livraison',
-        fee: 0
-      }
+        fee: 0,
+        promo: undefined,
+        recommended: undefined,
+      },
     ];
   }
 }

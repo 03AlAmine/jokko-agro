@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../services/auth.service';
-import { FirebaseService, Product } from '../../../services/firebase.service';
-
+import { FirebaseService } from '../../../services/firebase.service';
+import { Product } from '../../../services/data.interfaces';
 // Interface pour les catégories
 interface ProductCategory {
   id: string;
@@ -255,5 +255,5 @@ export class ProductsComponent implements OnInit {
       this.applyFilters();
     }
   }
-  
+
 }

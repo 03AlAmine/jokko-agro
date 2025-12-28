@@ -3,13 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
-import { FirebaseService, Product } from '../../../services/firebase.service';
+import { FirebaseService } from '../../../services/firebase.service';
 import { CartService } from '../../../services/cart.service'; // Importez le service panier
+import { Product } from '../../../services/data.interfaces';
 
 // Définissez l'interface MarketProduct
 interface MarketProduct
   extends Omit<Product, 'producerId' | 'producerPhone' | 'isActive'> {
   producer: string;
+  producerId: string; // ← AJOUTER CETTE LIGNE
   producerRating: number;
   distance: number;
   rating: number;
@@ -155,6 +157,7 @@ export class MarketComponent implements OnInit {
       id: product.id || '',
       name: product.name,
       producer: product.producerName || 'Producteur',
+      producerId: product.producerId || '', // ← AJOUTER CETTE LIGNE
       producerRating: producerRating,
       price: product.price,
       unit: product.unit,
@@ -212,78 +215,46 @@ export class MarketComponent implements OnInit {
     return this.getCategoryIcon(product.category);
   }
 
-  private loadFallbackData() {
-    console.log('Chargement des données de fallback');
-    // Données simulées
-    this.allProducts = [
-      {
-        id: '1',
-        name: 'Tomates Bio',
-        producer: 'Alioune Farm',
-        producerRating: 4.8,
-        price: 1500,
-        unit: 'kg',
-        quantity: 1,
-        category: 'vegetables',
-        displayImage: '🍅',
-        certified: true,
-        organic: true,
-        local: true,
-        distance: 2.5,
-        rating: 4.8,
-        reviews: 45,
-        description: 'Tomates biologiques cultivées sans pesticides',
-        stock: 50,
-        certifications: ['organic', 'local'],
-        isOrganic: true,
-        location: 'Dakar',
-        harvestDate: '2024-01-10',
-        expirationDate: '2024-01-20',
-        createdAt: new Date('2024-01-10'),
-        updatedAt: new Date('2024-01-15'),
-        status: 'available',
-        views: 100,
-        sales: 45,
-        producerName: 'Alioune Farm',
-        minOrderQuantity: 1,
-        images: [],
-        storageConditions: 'Conserver au frais',
-        contactPhone: '771234567',
-      },
-      {
-        id: '2',
-        name: 'Carottes Fraîches',
-        producer: 'Bio Garden',
-        producerRating: 4.5,
-        price: 1200,
-        unit: 'kg',
-        quantity: 1,
-        category: 'vegetables',
-        displayImage: '🥕',
-        certified: true,
-        organic: false,
-        local: true,
-        distance: 5.3,
-        rating: 4.5,
-        reviews: 28,
-        description: 'Carottes fraîches, récoltées le matin même',
-        stock: 30,
-        certifications: ['local'],
-        isOrganic: false,
-        location: 'Thiès',
-        harvestDate: '2024-01-12',
-        expirationDate: '2024-01-22',
-        createdAt: new Date('2024-01-12'),
-        updatedAt: new Date('2024-01-14'),
-        status: 'available',
-        views: 80,
-        sales: 28,
-        producerName: 'Bio Garden',
-        minOrderQuantity: 1,
-        images: [],
-        storageConditions: 'Conserver au frais',
-        contactPhone: '772345678',
-      },
+// Mettez aussi à jour les données de fallback dans loadFallbackData :
+private loadFallbackData() {
+  console.log('Chargement des données de fallback');
+  // Données simulées
+  this.allProducts = [
+    {
+      id: '1',
+      name: 'Tomates Bio',
+      producer: 'Alioune Farm',
+      producerId: 'producer_1', // ← AJOUTER
+      producerRating: 4.8,
+      price: 1500,
+      unit: 'kg',
+      quantity: 1,
+      category: 'vegetables',
+      displayImage: '🍅',
+      certified: true,
+      organic: true,
+      local: true,
+      distance: 2.5,
+      rating: 4.8,
+      reviews: 45,
+      description: 'Tomates biologiques cultivées sans pesticides',
+      stock: 50,
+      certifications: ['organic', 'local'],
+      isOrganic: true,
+      location: 'Dakar',
+      harvestDate: '2024-01-10',
+      expirationDate: '2024-01-20',
+      createdAt: new Date('2024-01-10'),
+      updatedAt: new Date('2024-01-15'),
+      status: 'available',
+      views: 100,
+      sales: 45,
+      producerName: 'Alioune Farm',
+      minOrderQuantity: 1,
+      images: [],
+      storageConditions: 'Conserver au frais',
+      contactPhone: '771234567',
+    },
     ];
 
     this.applyFilters();
@@ -497,7 +468,6 @@ export class MarketComponent implements OnInit {
       }
     }, 4000);
   }
-
 
   // Méthode utilitaire pour obtenir l'unité du produit
 

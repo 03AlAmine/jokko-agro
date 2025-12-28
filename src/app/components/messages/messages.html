@@ -1,0 +1,658 @@
+<div class="messages-container">
+  <main class="main-content">
+    <div class="messages-layout">
+      <!-- Panel des conversations -->
+      <div class="conversations-panel">
+        <!-- En-tête -->
+        <div class="panel-header">
+          <h2>
+            <span class="header-icon">💬</span>
+            {{ userRole === 'producer' ? 'Messages clients' : 'Messages
+            producteurs' }}
+          </h2>
+
+          <div class="header-actions">
+            <div class="header-stats">
+              <span class="stat">
+                <span class="stat-icon">📨</span>
+                {{ getActiveConversationsCount() }} conversations
+              </span>
+              <span *ngIf="getUnreadCount() > 0" class="stat unread">
+                <span class="stat-icon">🔔</span>
+                {{ getUnreadCount() }} non lus
+              </span>
+            </div>
+
+            <!-- Filtres -->
+            <div class="conversation-filters">
+              <select
+                [(ngModel)]="conversationFilter"
+                class="filter-select"
+                title="Filtrer les conversations"
+              >
+                <option value="all">Actives</option>
+                <option value="unread">Non lues</option>
+                <option value="archived">Archivées</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barre de recherche -->
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            (input)="onSearchInput()"
+            [placeholder]="userRole === 'producer' ? 'Rechercher un client...' : 'Rechercher un producteur...'"
+            class="search-input"
+            title="Rechercher une conversation"
+          />
+        </div>
+
+        <!-- Bouton nouvelle conversation -->
+        <div
+          *ngIf="userRole === 'buyer'"
+          class="new-conversation-btn-container"
+        >
+          <button class="btn-primary" (click)="openNewConversationModal()">
+            <span class="btn-icon">✉️</span>
+            <span>Nouvelle conversation</span>
+          </button>
+        </div>
+
+        <!-- Liste des conversations -->
+        <div
+          class="conversations-list"
+          *ngIf="!isLoading; else loadingConversations"
+        >
+          <div
+            *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId"
+            class="conversation-item"
+            [class.active]="selectedConversation?.id === conversation.id"
+            [class.unread]="(userRole === 'buyer' ? conversation.unreadBy.buyer : conversation.unreadBy.producer) > 0"
+            [class.archived]="conversation.status === 'archived'"
+            (click)="selectConversation(conversation)"
+            [attr.data-index]="i"
+          >
+            <div class="conversation-avatar">
+              {{ getOtherUserAvatar(conversation) }}
+              <span
+                *ngIf="conversation.unreadCount > 0"
+                class="unread-dot"
+              ></span>
+              <span
+                *ngIf="conversation.status === 'archived'"
+                class="archived-icon"
+                >📁</span
+              >
+            </div>
+
+            <div class="conversation-content">
+              <div class="conversation-header">
+                <div class="conversation-name">
+                  {{ getOtherUserName(conversation) }}
+                  <span
+                    *ngIf="conversation.isTyping && getOtherUserTyping(conversation)"
+                    class="typing-indicator small"
+                  >
+                    <span>écrit...</span>
+                  </span>
+                </div>
+                <div class="conversation-time">
+                  {{ getConversationTime(conversation) }}
+                </div>
+              </div>
+
+              <div class="conversation-preview">
+                <div
+                  class="preview-text"
+                  [class.unread]="getConversationUnreadCount(conversation) > 0"
+                >
+                  {{ getLastMessagePreview(conversation) }}
+                </div>
+                <div class="conversation-meta">
+                  <span *ngIf="conversation.productName" class="product-tag">
+                    {{ conversation.productName | slice:0:12 }}{{
+                    conversation.productName.length > 12 ? '...' : '' }}
+                  </span>
+                  <span
+                    *ngIf="getConversationUnreadCount(conversation) > 0"
+                    class="unread-badge"
+                  >
+                    {{ getConversationUnreadCount(conversation) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Aucune conversation -->
+          <div
+            *ngIf="filteredConversations.length === 0"
+            class="empty-conversations"
+          >
+            <div class="empty-icon">💬</div>
+            <h3>Aucune conversation</h3>
+            <p>
+              {{ userRole === 'producer' ? 'Vous n\'avez pas encore de
+              conversations avec des clients' : 'Vous n\'avez pas encore de
+              conversations avec des producteurs' }}
+            </p>
+            <button
+              *ngIf="userRole === 'buyer'"
+              class="btn-primary"
+              (click)="openNewConversationModal()"
+            >
+              <span class="btn-icon">✉️</span>
+              Commencer une conversation
+            </button>
+          </div>
+        </div>
+
+        <ng-template #loadingConversations>
+          <div class="loading-conversations">
+            <div class="spinner"></div>
+            <p>Chargement des conversations...</p>
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Panel de discussion -->
+      <div
+        class="chat-panel"
+        *ngIf="selectedConversation; else selectConversationPrompt"
+      >
+        <!-- En-tête de la discussion -->
+        <div class="chat-header">
+          <div class="chat-user">
+            <div class="user-avatar">
+              {{ getOtherUserAvatar(selectedConversation) }}
+            </div>
+            <div class="user-info">
+              <h3>
+                {{ getOtherUserName(selectedConversation) }}
+                <span
+                  class="user-status"
+                  *ngIf="getOtherUserStatus(selectedConversation) === 'online'"
+                >
+                  <span class="status-dot"></span>
+                  En ligne
+                </span>
+                <span
+                  class="user-status"
+                  *ngIf="getOtherUserStatus(selectedConversation) === 'offline'"
+                >
+                  <span class="status-dot offline"></span>
+                  Hors ligne
+                </span>
+              </h3>
+              <p *ngIf="selectedConversation.productName">
+                À propos de :
+                <strong>{{ selectedConversation.productName }}</strong>
+              </p>
+              <p class="conversation-date">
+                Conversation démarrée le {{
+                formatDate(selectedConversation.createdAt) }}
+              </p>
+              <div *ngIf="otherUserTyping" class="typing-indicator">
+                <div class="typing-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <span
+                  >{{ getOtherUserName(selectedConversation) }} est en train
+                  d'écrire...</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-actions">
+            <button
+              class="chat-action-btn"
+              (click)="toggleArchiveConversation(selectedConversation)"
+              [title]="selectedConversation.status === 'archived' ? 'Désarchiver' : 'Archiver'"
+            >
+              {{ selectedConversation.status === 'archived' ? '📂' : '📁' }}
+            </button>
+            <button
+              class="chat-action-btn"
+              (click)="viewUserProfile(selectedConversation)"
+              title="Voir le profil"
+            >
+              👤
+            </button>
+            <button
+              class="chat-action-btn"
+              (click)="blockUser(selectedConversation)"
+              title="Bloquer l'utilisateur"
+            >
+              🚫
+            </button>
+            <button
+              class="chat-action-btn"
+              (click)="deleteConversation(selectedConversation)"
+              title="Supprimer la conversation"
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div
+          #messagesContainer
+          class="messages-container-sms"
+          (scroll)="onMessagesScroll()"
+        >
+          <div *ngIf="showLoadMore" class="load-more-container">
+            <button
+              class="btn-secondary"
+              (click)="loadMoreMessages()"
+              [disabled]="loadingMoreMessages"
+            >
+              <span *ngIf="!loadingMoreMessages">Charger plus de messages</span>
+              <span *ngIf="loadingMoreMessages">Chargement...</span>
+            </button>
+          </div>
+
+          <div class="messages-list">
+            <div
+              *ngFor="let message of messages; let i = index; trackBy: trackByMessageId"
+              class="message-wrapper"
+              [class.sent]="isSentMessage(message)"
+              [class.received]="!isSentMessage(message)"
+              [attr.data-message-index]="i"
+            >
+              <!-- Indicateur de date -->
+              <div
+                *ngIf="shouldShowDate(message, i)"
+                class="message-date-separator"
+              >
+                <span>{{ getMessageDate(message) }}</span>
+              </div>
+
+              <div class="message">
+                <!-- Expéditeur -->
+                <div *ngIf="!isSentMessage(message)" class="message-sender">
+                  {{ message.senderName }}
+                </div>
+
+                <!-- Contenu du message -->
+                <div class="message-content">{{ message.content }}</div>
+
+                <!-- Métadonnées du message -->
+                <div class="message-meta">
+                  <span class="message-time"
+                    >{{ getMessageTime(message) }}</span
+                  >
+
+                  <!-- Statut d'envoi -->
+                  <span *ngIf="isSentMessage(message)" class="message-status">
+                    {{ getMessageStatusIcon(message) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zone de saisie -->
+        <div class="message-input-area">
+          <div class="input-wrapper">
+            <!-- Cherchez cette ligne et corrigez-la -->
+            <textarea
+              [(ngModel)]="newMessage"
+              (keydown)="onMessageKeydown($event)"
+              (input)="onMessageInput()"
+              [placeholder]="'Écrivez votre message à ' + getOtherUserName(selectedConversation) + '...'"
+              class="message-input"
+              [disabled]="isSendingMessage"
+              rows="2"
+              title="appuyez"
+            ></textarea>
+            <button
+              class="send-btn"
+              (click)="sendMessage()"
+              [disabled]="!newMessage.trim() || isSendingMessage"
+              [title]="isSendingMessage ? 'Envoi en cours...' : 'Envoyer le message'"
+            >
+              <span *ngIf="!isSendingMessage" class="send-icon">📤</span>
+              <span *ngIf="isSendingMessage" class="send-icon">⏳</span>
+            </button>
+          </div>
+
+          <!-- Indicateurs -->
+          <div class="input-hints">
+            <small>Appuyez sur ⌘ + Entrée pour un saut de ligne</small>
+            <small *ngIf="isTyping" class="typing-hint">Vous écrivez...</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message de sélection de conversation -->
+      <ng-template #selectConversationPrompt>
+        <div class="select-conversation-prompt">
+          <div class="prompt-icon">💬</div>
+          <h2>Sélectionnez une conversation</h2>
+          <p>
+            {{ userRole === 'producer' ? 'Choisissez une conversation avec un
+            client pour commencer à discuter' : 'Choisissez une conversation
+            avec un producteur pour commencer à discuter' }}
+          </p>
+
+          <div class="prompt-tips">
+            <h4>💡 Conseils pour une bonne communication :</h4>
+            <ul>
+              <li *ngIf="userRole === 'producer'">
+                <strong>Rapidité :</strong> Répondez dans les 24 heures maximum
+              </li>
+              <li *ngIf="userRole === 'buyer'">
+                <strong>Respect :</strong> Soyez poli et respectueux du temps du
+                producteur
+              </li>
+              <li>
+                <strong>Clarté :</strong> Soyez précis sur les prix et
+                disponibilités
+              </li>
+              <li>
+                <strong>Professionalisme :</strong> Utilisez un langage poli et
+                courtois
+              </li>
+              <li>
+                <strong>Transparence :</strong> Informez des délais de livraison
+                réels
+              </li>
+            </ul>
+          </div>
+
+          <button
+            *ngIf="userRole === 'buyer'"
+            class="btn-primary mt-4"
+            (click)="openNewConversationModal()"
+          >
+            <span class="btn-icon">✉️</span>
+            Nouvelle conversation
+          </button>
+        </div>
+      </ng-template>
+    </div>
+  </main>
+</div>
+
+<!-- Modal pour démarrer une nouvelle conversation -->
+<div class="modal-overlay" *ngIf="modalData.show">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Démarrer une nouvelle conversation</h3>
+      <button
+        class="modal-close"
+        (click)="closeModal()"
+        [disabled]="modalData.isLoading"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Recherche de producteur -->
+      <div class="producer-search">
+        <input
+          type="text"
+          [(ngModel)]="modalData.searchQuery"
+          (input)="onProducerSearch()"
+          placeholder="Rechercher un producteur par nom, ferme ou localisation..."
+          class="search-input"
+          [disabled]="modalData.isLoading"
+        />
+      </div>
+
+      <!-- Liste des producteurs -->
+      <div
+        class="producers-list"
+        *ngIf="!modalData.isLoading; else loadingProducers"
+      >
+        <div
+          *ngFor="let producer of filteredProducers; trackBy: trackByProducerId"
+          class="producer-item"
+          [class.selected]="modalData.selectedProducerId === producer.id"
+          (click)="selectProducer(producer)"
+        >
+          <div class="producer-avatar">{{ producer.avatar || '👨‍🌾' }}</div>
+
+          <div class="producer-info">
+            <h4>{{ producer.name }}</h4>
+            <p class="producer-farm">{{ producer.farmName }}</p>
+            <p class="producer-location">📍 {{ producer.location }}</p>
+
+            <div class="producer-stats">
+              <span class="producer-rating">
+                ⭐ {{ producer.rating.toFixed(1) }} ({{ producer.reviews }}
+                avis)
+              </span>
+              <span class="producer-response">
+                📨 {{ producer.responseRate }}% réponse • ⏱️ {{
+                producer.averageResponseTime }} min
+              </span>
+            </div>
+
+            <p class="producer-description">{{ producer.description }}</p>
+
+            <div class="producer-tags">
+              <span *ngIf="producer.isOrganic" class="tag organic">🌱 Bio</span>
+              <span
+                *ngFor="let cert of producer.certifications.slice(0, 2)"
+                class="tag certification"
+              >
+                🏅 {{ cert }}
+              </span>
+              <span *ngIf="producer.productsCount > 0" class="tag products">
+                📦 {{ producer.productsCount }} produits
+              </span>
+              <span *ngIf="producer.isOnline" class="tag online"
+                >🟢 En ligne</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Aucun producteur trouvé -->
+        <div
+          *ngIf="filteredProducers.length === 0 && modalData.searchQuery"
+          class="no-producers"
+        >
+          <div class="no-producers-icon">🔍</div>
+          <h4>Aucun producteur trouvé</h4>
+          <p>Essayez avec d'autres termes de recherche</p>
+        </div>
+      </div>
+
+      <ng-template #loadingProducers>
+        <div class="loading-producers">
+          <div class="spinner"></div>
+          <p>Recherche des producteurs...</p>
+        </div>
+      </ng-template>
+
+      <!-- Formulaire de message -->
+      <div *ngIf="modalData.selectedProducerId" class="message-to-producer">
+        <h4>Votre message à {{ getSelectedProducerName() }}</h4>
+        <textarea
+          [(ngModel)]="modalData.message"
+          (input)="onModalMessageInput()"
+          placeholder="Écrivez votre message ici. Soyez clair sur ce que vous souhaitez demander ou commander..."
+          rows="4"
+          class="message-textarea"
+          [disabled]="modalData.isLoading"
+          maxlength="500"
+        ></textarea>
+
+        <div class="character-count">
+          {{ modalData.message.length }} / 500 caractères
+        </div>
+
+        <!-- Suggestions de message -->
+        <div class="message-suggestions" *ngIf="!modalData.message.trim()">
+          <h5>Suggestions de message :</h5>
+          <div class="suggestions-list">
+            <button
+              class="suggestion-btn"
+              (click)="modalData.message = 'Bonjour, je souhaiterais commander vos produits. Pourriez-vous m\'indiquer les disponibilités et les prix ?'"
+            >
+              Demande d'information sur les produits
+            </button>
+            <button
+              class="suggestion-btn"
+              (click)="modalData.message = 'Bonjour, je suis intéressé par vos produits. Quelle est la procédure pour passer commande ?'"
+            >
+              Demande de procédure de commande
+            </button>
+            <button
+              class="suggestion-btn"
+              (click)="modalData.message = 'Bonjour, je voudrais savoir si vous faites des livraisons dans ma région et quels sont les délais.'"
+            >
+              Demande sur la livraison
+            </button>
+          </div>
+        </div>
+
+        <!-- Actions du modal -->
+        <div class="modal-actions">
+          <button
+            class="btn-secondary"
+            (click)="closeModal()"
+            [disabled]="modalData.isLoading"
+          >
+            Annuler
+          </button>
+          <button
+            class="btn-primary"
+            (click)="startConversation()"
+            [disabled]="!modalData.message.trim() || modalData.isLoading"
+          >
+            <span *ngIf="modalData.isLoading">Envoi en cours...</span>
+            <span *ngIf="!modalData.isLoading">Envoyer le message</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de profil utilisateur -->
+<div class="modal-overlay" *ngIf="profileModalData.show">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Profil de {{ profileModalData.userName }}</h3>
+      <button class="modal-close" (click)="closeProfileModal()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="profile-content">
+        <div class="profile-header">
+          <div class="profile-avatar">{{ profileModalData.userAvatar }}</div>
+          <div class="profile-info">
+            <h4>{{ profileModalData.userName }}</h4>
+            <p class="profile-role">
+              {{ profileModalData.userRole === 'producer' ? 'Producteur' :
+              'Acheteur' }}
+            </p>
+            <p class="profile-location" *ngIf="profileModalData.location">
+              📍 {{ profileModalData.location }}
+            </p>
+          </div>
+        </div>
+
+        <div class="profile-details">
+          <div class="detail-section">
+            <h5>Informations</h5>
+            <div class="detail-item" *ngIf="profileModalData.email">
+              <span class="detail-label">Email :</span>
+              <span class="detail-value">{{ profileModalData.email }}</span>
+            </div>
+            <div class="detail-item" *ngIf="profileModalData.phone">
+              <span class="detail-label">Téléphone :</span>
+              <span class="detail-value">{{ profileModalData.phone }}</span>
+            </div>
+            <div class="detail-item" *ngIf="profileModalData.joinedDate">
+              <span class="detail-label">Membre depuis :</span>
+              <span class="detail-value"
+                >{{ formatDate(profileModalData.joinedDate) }}</span
+              >
+            </div>
+          </div>
+
+          <div
+            class="detail-section"
+            *ngIf="profileModalData.userRole === 'producer'"
+          >
+            <h5>Informations de la ferme</h5>
+            <div class="detail-item" *ngIf="profileModalData.farmName">
+              <span class="detail-label">Nom de la ferme :</span>
+              <span class="detail-value">{{ profileModalData.farmName }}</span>
+            </div>
+            <div class="detail-item" *ngIf="profileModalData.description">
+              <span class="detail-label">Description :</span>
+              <span class="detail-value"
+                >{{ profileModalData.description }}</span
+              >
+            </div>
+            <div
+              class="detail-item"
+              *ngIf="profileModalData.certifications?.length"
+            >
+              <span class="detail-label">Certifications :</span>
+              <span class="detail-value">
+                {{ profileModalData.certifications?.join(', ') }}
+              </span>
+            </div>
+          </div>
+
+          <div class="detail-section" *ngIf="profileModalData.stats">
+            <h5>Statistiques</h5>
+            <div class="detail-item" *ngIf="profileModalData.stats.rating">
+              <span class="detail-label">Note moyenne :</span>
+              <span class="detail-value"
+                >⭐ {{ profileModalData.stats.rating.toFixed(1) }}/5</span
+              >
+            </div>
+            <div
+              class="detail-item"
+              *ngIf="profileModalData.stats.responseRate"
+            >
+              <span class="detail-label">Taux de réponse :</span>
+              <span class="detail-value"
+                >{{ profileModalData.stats.responseRate }}%</span
+              >
+            </div>
+            <div
+              class="detail-item"
+              *ngIf="profileModalData.stats.responseTime"
+            >
+              <span class="detail-label">Temps de réponse moyen :</span>
+              <span class="detail-value"
+                >{{ profileModalData.stats.responseTime }} min</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-actions">
+          <button class="btn-secondary" (click)="closeProfileModal()">
+            Fermer
+          </button>
+          <button
+            class="btn-primary"
+            (click)="startNewConversationFromProfile()"
+          >
+            <span class="btn-icon">✉️</span>
+            Envoyer un message
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,44 +1,18 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { AuthService } from '../../../services/auth.service';
+import { Subscription } from 'rxjs';
+import { ViewEncapsulation } from '@angular/core';
 
-interface Sale {
-  id: string;
-  orderNumber: string;
-  product: string;
-  buyer: {
-    name: string;
-    phone: string;
-    location: string;
-  };
-  date: Date;
-  quantity: number;
-  unitPrice: number;
-  totalAmount: number;
-  status: 'completed' | 'pending' | 'cancelled' | 'shipped';
-  paymentMethod: 'wave' | 'orange_money' | 'free_money' | 'cash';
-  deliveryType: 'pickup' | 'delivery';
-  rating?: number;
-  review?: string;
-}
-
-interface SalesStat {
-  label: string;
-  value: number;
-  change: number;
-  trend: 'up' | 'down';
-  icon: string;
-  color: string;
-}
-
-interface MonthlyStat {
-  month: string;
-  sales: number;
-  revenue: number;
-  orders: number;
-}
+import { FirebaseService } from '../../../services/firebase.service';
+import { SalesService } from '../../../services/sales.service';
+import {
+  Sale,
+  SalesStats,
+  SalesFilter,
+  StatCard,
+} from '../../../services/data.interfaces';
 
 @Component({
   selector: 'app-sales',
@@ -46,18 +20,28 @@ interface MonthlyStat {
   imports: [CommonModule, FormsModule],
   templateUrl: './sales.html',
   styleUrls: ['./sales.css'],
+    encapsulation: ViewEncapsulation.None,
+
 })
-export class SalesComponent implements OnInit {
+export class SalesComponent implements OnInit, OnDestroy {
+  // Données
   sales: Sale[] = [];
   filteredSales: Sale[] = [];
+  stats: SalesStats | null = null;
+  statCards: StatCard[] = [];
   isLoading = false;
+  isExporting = false;
 
   // Filtres
-  selectedPeriod = 'all';
-  selectedStatus = 'all';
-  selectedPayment = 'all';
-  searchQuery = '';
+  filter: SalesFilter = {
+    period: 'month',
+    status: 'all',
+    paymentMethod: 'all',
+    deliveryType: 'all',
+    searchQuery: '',
+  };
 
+  // Options de filtres
   periods = [
     { id: 'today', name: "Aujourd'hui" },
     { id: 'week', name: 'Cette semaine' },
@@ -69,10 +53,13 @@ export class SalesComponent implements OnInit {
 
   statuses = [
     { id: 'all', name: 'Tous les statuts' },
-    { id: 'completed', name: 'Complété' },
     { id: 'pending', name: 'En attente' },
+    { id: 'confirmed', name: 'Confirmé' },
     { id: 'shipped', name: 'Expédié' },
+    { id: 'delivered', name: 'Livré' },
+    { id: 'completed', name: 'Terminé' },
     { id: 'cancelled', name: 'Annulé' },
+    { id: 'refunded', name: 'Remboursé' },
   ];
 
   paymentMethods = [
@@ -81,423 +68,676 @@ export class SalesComponent implements OnInit {
     { id: 'orange_money', name: 'Orange Money' },
     { id: 'free_money', name: 'Free Money' },
     { id: 'cash', name: 'Espèces' },
+    { id: 'credit_card', name: 'Carte bancaire' },
+    { id: 'mobile_money', name: 'Mobile Money' },
   ];
 
-  // Statistiques
-  stats: SalesStat[] = [];
-  monthlyStats: MonthlyStat[] = [];
-
-  // Top produits
-  topProducts = [
-    { name: 'Tomates Bio', sales: 45, revenue: 67500 },
-    { name: 'Oignons Rouges', sales: 60, revenue: 48000 },
-    { name: 'Carottes Fraîches', sales: 28, revenue: 33600 },
-    { name: 'Mangues Kent', sales: 15, revenue: 30000 },
+  deliveryTypes = [
+    { id: 'all', name: 'Tous les types' },
+    { id: 'pickup', name: 'À retirer' },
+    { id: 'delivery', name: 'Livraison' },
   ];
 
-  // Données pour les graphiques (simplifié)
-  revenueChartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Revenus (FCFA)',
-        data: [450000, 520000, 480000, 610000, 700000, 850000],
-        backgroundColor: 'rgba(46, 125, 50, 0.2)',
-        borderColor: 'rgba(46, 125, 50, 1)',
-        borderWidth: 2,
-      },
-    ],
-  };
+  // Pagination
+  currentPage = 1;
+  itemsPerPage = 10;
+  totalPages = 0;
 
-  salesChartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Nombre de ventes',
-        data: [45, 52, 48, 61, 70, 85],
-        backgroundColor: 'rgba(33, 150, 243, 0.2)',
-        borderColor: 'rgba(33, 150, 243, 1)',
-        borderWidth: 2,
-      },
-    ],
-  };
+  // Abonnements
+  private subscriptions = new Subscription();
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private firebaseService: FirebaseService,
+    private salesService: SalesService
+  ) {}
 
-  ngOnInit() {
-    this.loadSalesData();
-    this.loadStats();
-    this.generateMonthlyStats();
+  async ngOnInit() {
+    await this.loadData();
   }
 
-  loadSalesData() {
+  ngOnDestroy() {
+    this.subscriptions.unsubscribe();
+  }
+
+  // Charger toutes les données
+  async loadData() {
     this.isLoading = true;
 
-    // Données simulées
-    this.sales = [
-      {
-        id: '1',
-        orderNumber: 'CMD-2024-001',
-        product: 'Tomates Bio (5kg)',
-        buyer: {
-          name: 'Alioune Diop',
-          phone: '77 123 45 67',
-          location: 'Dakar, Plateau',
-        },
-        date: new Date('2024-01-15'),
-        quantity: 5,
-        unitPrice: 1500,
-        totalAmount: 7500,
-        status: 'completed',
-        paymentMethod: 'wave',
-        deliveryType: 'pickup',
-        rating: 5,
-        review: 'Produits frais et de qualité, recommandé!',
-      },
-      {
-        id: '2',
-        orderNumber: 'CMD-2024-002',
-        product: 'Carottes Fraîches (3kg)',
-        buyer: {
-          name: 'Fatou Ndiaye',
-          phone: '78 234 56 78',
-          location: 'Pikine',
-        },
-        date: new Date('2024-01-14'),
-        quantity: 3,
-        unitPrice: 1200,
-        totalAmount: 3600,
-        status: 'completed',
-        paymentMethod: 'orange_money',
-        deliveryType: 'delivery',
-        rating: 4,
-        review: 'Bon produit, livraison rapide',
-      },
-      {
-        id: '3',
-        orderNumber: 'CMD-2024-003',
-        product: 'Oignons Rouges (10kg)',
-        buyer: {
-          name: 'Moussa Fall',
-          phone: '76 345 67 89',
-          location: 'Guediawaye',
-        },
-        date: new Date('2024-01-13'),
-        quantity: 10,
-        unitPrice: 800,
-        totalAmount: 8000,
-        status: 'shipped',
-        paymentMethod: 'free_money',
-        deliveryType: 'delivery',
-      },
-      {
-        id: '4',
-        orderNumber: 'CMD-2024-004',
-        product: 'Mangues Kent (2kg)',
-        buyer: {
-          name: 'Aminata Sow',
-          phone: '70 456 78 90',
-          location: 'Mermoz',
-        },
-        date: new Date('2024-01-12'),
-        quantity: 2,
-        unitPrice: 2000,
-        totalAmount: 4000,
-        status: 'pending',
-        paymentMethod: 'cash',
-        deliveryType: 'pickup',
-      },
-      {
-        id: '5',
-        orderNumber: 'CMD-2024-005',
-        product: 'Riz Local (1 sac)',
-        buyer: {
-          name: 'Ibrahima Diallo',
-          phone: '77 567 89 01',
-          location: 'Ouakam',
-        },
-        date: new Date('2024-01-11'),
-        quantity: 1,
-        unitPrice: 5000,
-        totalAmount: 5000,
-        status: 'cancelled',
-        paymentMethod: 'wave',
-        deliveryType: 'pickup',
-      },
-      {
-        id: '6',
-        orderNumber: 'CMD-2024-006',
-        product: 'Tomates Bio (3kg)',
-        buyer: {
-          name: 'Khadija Gueye',
-          phone: '78 678 90 12',
-          location: 'Liberté 6',
-        },
-        date: new Date('2024-01-10'),
-        quantity: 3,
-        unitPrice: 1500,
-        totalAmount: 4500,
-        status: 'completed',
-        paymentMethod: 'orange_money',
-        deliveryType: 'delivery',
-        rating: 5,
-      },
-    ];
+    try {
+      const currentUser = this.firebaseService.userData;
+      if (!currentUser || currentUser.role !== 'producer') {
+        this.showNotification('Connectez-vous en tant que producteur', 'error');
+        return;
+      }
 
-    this.filteredSales = [...this.sales];
-    this.isLoading = false;
+      // Convertir les valeurs 'all' en undefined pour le service
+      const serviceFilter = this.prepareServiceFilter(this.filter);
+
+      // Charger les ventes
+      this.sales = await this.salesService.getSales(
+        currentUser.uid,
+        serviceFilter
+      );
+      this.filteredSales = [...this.sales];
+
+      // Charger les statistiques
+      await this.loadStats();
+
+      // Calculer la pagination
+      this.calculatePagination();
+    } catch (error) {
+      console.error('Erreur chargement données:', error);
+      this.showNotification('Erreur de chargement', 'error');
+    } finally {
+      this.isLoading = false;
+    }
   }
 
-  loadStats() {
-    this.stats = [
+  // Préparer le filtre pour le service (convertir 'all' en undefined)
+  private prepareServiceFilter(filter: SalesFilter): SalesFilter {
+    const serviceFilter: SalesFilter = {
+      period: filter.period,
+      searchQuery: filter.searchQuery,
+    };
+
+    // Convertir 'all' en undefined pour le service
+    if (filter.status && filter.status !== 'all') {
+      serviceFilter.status = filter.status;
+    }
+
+    if (filter.paymentMethod && filter.paymentMethod !== 'all') {
+      serviceFilter.paymentMethod = filter.paymentMethod;
+    }
+
+    if (filter.deliveryType && filter.deliveryType !== 'all') {
+      serviceFilter.deliveryType = filter.deliveryType;
+    }
+
+    return serviceFilter;
+  }
+
+  // Charger les statistiques
+  async loadStats() {
+    try {
+      const currentUser = this.firebaseService.userData;
+      if (!currentUser) return;
+
+      const serviceFilter = this.prepareServiceFilter(this.filter);
+      this.stats = await this.salesService.getSalesStats(
+        currentUser.uid,
+        serviceFilter
+      );
+      this.updateStatCards();
+    } catch (error) {
+      console.error('Erreur chargement statistiques:', error);
+    }
+  }
+
+  // Mettre à jour les cartes de statistiques
+  updateStatCards() {
+    if (!this.stats) return;
+
+    // Vérifier si monthlyTrend est défini
+    const monthlyTrend = this.stats.monthlyTrend ?? 0;
+
+    this.statCards = [
       {
+        id: 'revenue',
         label: 'Revenu total',
-        value: 125000,
-        change: 15,
-        trend: 'up',
+        value: this.stats.totalRevenue,
+        change: monthlyTrend,
+        trend: monthlyTrend >= 0 ? 'up' : 'down',
         icon: '💰',
         color: '#4CAF50',
+        prefix: '',
+        suffix: ' FCFA',
+        format: 'currency',
       },
       {
-        label: 'Ventes totales',
-        value: 8,
-        change: 20,
+        id: 'orders',
+        label: 'Commandes',
+        value: this.filteredSales.length,
+        change: 15,
         trend: 'up',
-        icon: '📈',
+        icon: '📦',
         color: '#2196F3',
+        format: 'number',
       },
       {
+        id: 'average',
         label: 'Panier moyen',
-        value: 6250,
+        value: this.stats.averageOrderValue,
         change: 5,
         trend: 'up',
         icon: '🛒',
         color: '#FF9800',
+        prefix: '',
+        suffix: ' FCFA',
+        format: 'currency',
       },
       {
-        label: 'Taux de complétion',
-        value: 85,
-        change: -2,
-        trend: 'down',
-        icon: '✅',
-        color: '#9C27B0',
-      },
-      {
-        label: 'Clients actifs',
-        value: 6,
-        change: 10,
-        trend: 'up',
-        icon: '👥',
-        color: '#E91E63',
-      },
-      {
+        id: 'rating',
         label: 'Note moyenne',
-        value: 4.7,
+        value: this.stats.averageRating,
         change: 0.3,
         trend: 'up',
         icon: '⭐',
         color: '#FFC107',
+        suffix: '/5',
+        format: 'rating',
+      },
+      {
+        id: 'completion',
+        label: 'Taux de complétion',
+        value: this.stats.completionRate,
+        change: -2,
+        trend: 'down',
+        icon: '✅',
+        color: '#9C27B0',
+        suffix: '%',
+        format: 'percentage',
+      },
+      {
+        id: 'active',
+        label: 'Clients actifs',
+        value: this.stats.topBuyers.length,
+        change: 10,
+        trend: 'up',
+        icon: '👥',
+        color: '#E91E63',
+        format: 'number',
       },
     ];
   }
 
-  generateMonthlyStats() {
-    this.monthlyStats = [
-      { month: 'Jan', sales: 45, revenue: 450000, orders: 8 },
-      { month: 'Feb', sales: 52, revenue: 520000, orders: 10 },
-      { month: 'Mar', sales: 48, revenue: 480000, orders: 9 },
-      { month: 'Apr', sales: 61, revenue: 610000, orders: 12 },
-      { month: 'May', sales: 70, revenue: 700000, orders: 14 },
-      { month: 'Jun', sales: 85, revenue: 850000, orders: 17 },
-    ];
-  }
-
+  // Appliquer les filtres
   applyFilters() {
+    // Filtrer localement
     let filtered = [...this.sales];
 
     // Filtre par recherche
-    if (this.searchQuery) {
+    if (this.filter.searchQuery) {
+      const searchLower = this.filter.searchQuery.toLowerCase();
       filtered = filtered.filter(
         (sale) =>
-          sale.orderNumber
-            .toLowerCase()
-            .includes(this.searchQuery.toLowerCase()) ||
-          sale.product.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-          sale.buyer.name.toLowerCase().includes(this.searchQuery.toLowerCase())
+          sale.orderNumber.toLowerCase().includes(searchLower) ||
+          sale.productName.toLowerCase().includes(searchLower) ||
+          sale.buyerName.toLowerCase().includes(searchLower) ||
+          (sale.buyerPhone &&
+            sale.buyerPhone.includes(this.filter.searchQuery || ''))
       );
     }
 
     // Filtre par statut
-    if (this.selectedStatus !== 'all') {
-      filtered = filtered.filter((sale) => sale.status === this.selectedStatus);
+    if (this.filter.status && this.filter.status !== 'all') {
+      filtered = filtered.filter((sale) => sale.status === this.filter.status);
     }
 
     // Filtre par méthode de paiement
-    if (this.selectedPayment !== 'all') {
+    if (this.filter.paymentMethod && this.filter.paymentMethod !== 'all') {
       filtered = filtered.filter(
-        (sale) => sale.paymentMethod === this.selectedPayment
+        (sale) => sale.paymentMethod === this.filter.paymentMethod
       );
     }
 
-    // Filtre par période
-    if (this.selectedPeriod !== 'all') {
-      const now = new Date();
-      const startDate = this.getPeriodStartDate(this.selectedPeriod);
-
+    // Filtre par type de livraison
+    if (this.filter.deliveryType && this.filter.deliveryType !== 'all') {
       filtered = filtered.filter(
-        (sale) => sale.date >= startDate && sale.date <= now
+        (sale) => sale.deliveryType === this.filter.deliveryType
       );
     }
-
-    // Tri par date récente d'abord
-    filtered.sort((a, b) => b.date.getTime() - a.date.getTime());
 
     this.filteredSales = filtered;
-  }
+    this.currentPage = 1;
+    this.calculatePagination();
 
-  getPeriodStartDate(period: string): Date {
-    const now = new Date();
-    const start = new Date(now);
-
-    switch (period) {
-      case 'today':
-        start.setHours(0, 0, 0, 0);
-        break;
-      case 'week':
-        start.setDate(now.getDate() - 7);
-        break;
-      case 'month':
-        start.setMonth(now.getMonth() - 1);
-        break;
-      case 'quarter':
-        start.setMonth(now.getMonth() - 3);
-        break;
-      case 'year':
-        start.setFullYear(now.getFullYear() - 1);
-        break;
-      default:
-        return new Date(0); // Toutes les dates
-    }
-
-    return start;
-  }
-
-  getStatusText(status: string): string {
-    switch (status) {
-      case 'completed':
-        return 'Complété';
-      case 'pending':
-        return 'En attente';
-      case 'shipped':
-        return 'Expédié';
-      case 'cancelled':
-        return 'Annulé';
-      default:
-        return status;
+    // Recharger les statistiques si période changée
+    if (this.filter.period) {
+      this.loadStats();
     }
   }
 
-  getStatusClass(status: string): string {
+  // Effacer tous les filtres
+  clearFilters() {
+    this.filter = {
+      period: 'month',
+      status: 'all',
+      paymentMethod: 'all',
+      deliveryType: 'all',
+      searchQuery: '',
+    };
+    this.applyFilters();
+  }
+
+  // Mettre à jour le statut d'une vente
+  async updateSaleStatus(saleId: string, newStatus: string) {
+    if (!newStatus) return;
+
+    try {
+      const result = await this.salesService.updateSaleStatus(
+        saleId,
+        newStatus as any
+      );
+
+      if (result.success) {
+        await this.loadData();
+        this.showNotification(`Statut mis à jour avec succès`);
+      } else {
+        this.showNotification(`Erreur: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Erreur mise à jour statut:', error);
+      this.showNotification('Erreur lors de la mise à jour', 'error');
+    }
+  }
+
+  // Exporter les ventes
+  async exportSales() {
+    if (this.isExporting) return;
+
+    this.isExporting = true;
+
+    try {
+      const currentUser = this.firebaseService.userData;
+      if (!currentUser) return;
+
+      const serviceFilter = this.prepareServiceFilter(this.filter);
+      const csvContent = await this.salesService.exportSalesToCSV(
+        currentUser.uid,
+        serviceFilter
+      );
+
+      if (csvContent) {
+        // Créer et télécharger le fichier
+        const blob = new Blob([csvContent], {
+          type: 'text/csv;charset=utf-8;',
+        });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+
+        link.setAttribute('href', url);
+        link.setAttribute(
+          'download',
+          `ventes_${new Date().toISOString().split('T')[0]}.csv`
+        );
+        link.style.visibility = 'hidden';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        this.showNotification('Export CSV réussi!');
+      }
+    } catch (error) {
+      console.error('Erreur export:', error);
+      this.showNotification("Erreur lors de l'export", 'error');
+    } finally {
+      this.isExporting = false;
+    }
+  }
+
+  // Voir les détails d'une vente
+  viewSaleDetails(sale: Sale) {
+    const details = `
+      <div class="sale-details-modal">
+        <h3>📋 Détails de la commande</h3>
+
+        <div class="detail-section">
+          <h4>🛒 Commande</h4>
+          <p><strong>Numéro:</strong> ${sale.orderNumber}</p>
+          <p><strong>Date:</strong> ${this.formatDate(sale.orderDate)}</p>
+          <p><strong>Statut:</strong> <span class="status-badge ${this.getStatusClass(
+            sale.status
+          )}">${this.getStatusText(sale.status)}</span></p>
+        </div>
+
+        <div class="detail-section">
+          <h4>👤 Client</h4>
+          <p><strong>Nom:</strong> ${sale.buyerName}</p>
+          <p><strong>Téléphone:</strong> ${sale.buyerPhone || 'Non fourni'}</p>
+          <p><strong>Localisation:</strong> ${sale.buyerLocation}</p>
+          ${
+            sale.deliveryAddress
+              ? `<p><strong>Adresse de livraison:</strong> ${sale.deliveryAddress}</p>`
+              : ''
+          }
+        </div>
+
+        <div class="detail-section">
+          <h4>📦 Produit</h4>
+          <p><strong>Nom:</strong> ${sale.productName}</p>
+          <p><strong>Catégorie:</strong> ${sale.productCategory}</p>
+          <p><strong>Quantité:</strong> ${sale.quantity} ${this.getProductUnit(
+      sale
+    )}</p>
+          <p><strong>Prix unitaire:</strong> ${this.formatPrice(
+            sale.unitPrice
+          )}/${this.getProductUnit(sale)}</p>
+        </div>
+
+        <div class="detail-section">
+          <h4>💰 Montants</h4>
+          <p><strong>Sous-total:</strong> ${this.formatPrice(
+            sale.totalAmount - (sale.deliveryFee || 0)
+          )}</p>
+          ${
+            sale.deliveryFee
+              ? `<p><strong>Frais de livraison:</strong> ${this.formatPrice(
+                  sale.deliveryFee
+                )}</p>`
+              : ''
+          }
+          <p><strong class="total">Total:</strong> ${this.formatPrice(
+            sale.totalAmount
+          )}</p>
+        </div>
+
+        <div class="detail-section">
+          <h4>📊 Informations</h4>
+          <p><strong>Méthode de paiement:</strong> ${this.getPaymentMethodText(
+            sale.paymentMethod
+          )}</p>
+          <p><strong>Statut paiement:</strong> ${
+            sale.paymentStatus || 'Non spécifié'
+          }</p>
+          <p><strong>Type de livraison:</strong> ${this.getDeliveryTypeText(
+            sale.deliveryType
+          )}</p>
+          ${
+            sale.deliveryDate
+              ? `<p><strong>Date de livraison:</strong> ${this.formatDate(
+                  sale.deliveryDate
+                )}</p>`
+              : ''
+          }
+          ${
+            sale.completionDate
+              ? `<p><strong>Date de complétion:</strong> ${this.formatDate(
+                  sale.completionDate
+                )}</p>`
+              : ''
+          }
+        </div>
+
+        ${
+          sale.notes
+            ? `
+        <div class="detail-section">
+          <h4>📝 Notes</h4>
+          <p>${sale.notes}</p>
+        </div>
+        `
+            : ''
+        }
+
+        ${
+          sale.rating
+            ? `
+        <div class="detail-section">
+          <h4>⭐ Évaluation</h4>
+          <div class="rating-display">
+            <div class="stars">${this.getStarRating(sale.rating)}</div>
+            <p><strong>Note:</strong> ${sale.rating}/5</p>
+            ${
+              sale.review
+                ? `<p><strong>Avis:</strong> "${sale.review}"</p>`
+                : ''
+            }
+          </div>
+        </div>
+        `
+            : ''
+        }
+      </div>
+    `;
+
+    this.showModal('Détails de la commande', details);
+  }
+
+  // Méthodes utilitaires
+  getStatusText(status: Sale['status']): string {
+    return this.salesService.getStatusText(status);
+  }
+
+  getStatusClass(status: Sale['status']): string {
     switch (status) {
       case 'completed':
         return 'status-completed';
+      case 'confirmed':
+        return 'status-confirmed';
       case 'pending':
         return 'status-pending';
       case 'shipped':
         return 'status-shipped';
+      case 'delivered':
+        return 'status-delivered';
       case 'cancelled':
         return 'status-cancelled';
+      case 'refunded':
+        return 'status-refunded';
       default:
-        return '';
+        return 'status-pending';
     }
   }
 
-  getPaymentMethodText(method: string): string {
-    switch (method) {
-      case 'wave':
-        return 'Wave';
-      case 'orange_money':
-        return 'Orange Money';
-      case 'free_money':
-        return 'Free Money';
-      case 'cash':
-        return 'Espèces';
-      default:
-        return method;
-    }
+  getPaymentMethodText(method: Sale['paymentMethod']): string {
+    return this.salesService.getPaymentMethodText(method);
   }
 
-  getDeliveryTypeText(type: string): string {
-    return type === 'pickup' ? 'À retirer' : 'Livraison';
+  getDeliveryTypeText(type: Sale['deliveryType']): string {
+    return this.salesService.getDeliveryTypeText(type);
   }
 
-  getTotalRevenue(): number {
-    return this.sales
-      .filter((s) => s.status === 'completed')
-      .reduce((sum, sale) => sum + sale.totalAmount, 0);
+  formatPrice(price: number): string {
+    return this.salesService.formatPrice(price);
   }
 
-  getAverageRating(): number {
-    const ratedSales = this.sales.filter((s) => s.rating);
-    if (ratedSales.length === 0) return 0;
-
-    const total = ratedSales.reduce((sum, sale) => sum + (sale.rating || 0), 0);
-    return Math.round((total / ratedSales.length) * 10) / 10;
+  formatDate(date: Date): string {
+    return this.salesService.formatDate(date);
   }
 
-  getCompletionRate(): number {
-    const completed = this.sales.filter((s) => s.status === 'completed').length;
-    return Math.round((completed / this.sales.length) * 100);
-  }
-
-  viewSaleDetails(sale: Sale) {
-    console.log('Voir détails:', sale);
-    // À implémenter: modal ou page de détails
-  }
-
-  updateSaleStatus(saleId: string, newStatus: string) {
-    const sale = this.sales.find((s) => s.id === saleId);
-    if (sale) {
-      sale.status = newStatus as any;
-      this.applyFilters();
-      // À implémenter: mise à jour dans Firestore
-    }
-  }
-  clearFilters() {
-    // Réinitialiser les filtres
-    this.selectedPeriod = 'all';
-    this.selectedStatus = 'all';
-    this.selectedPayment = 'all';
-    this.searchQuery = '';
-
-    // Réappliquer les filtres (affiche toutes les ventes)
-    this.applyFilters();
-  }
-  getTotalFilteredRevenue(): string {
-    const total = this.filteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
-    return total.toLocaleString();
-  }
-
-  exportSales() {
-    console.log('Exporter les ventes');
-    // À implémenter: export CSV/Excel
-  }
-
-  handleVoiceCommand(command: string) {
-    const lowerCommand = command.toLowerCase();
-
-    if (lowerCommand.includes('revenu') || lowerCommand.includes('argent')) {
-      alert(`Revenu total: ${this.getTotalRevenue().toLocaleString()} FCFA`);
-    } else if (
-      lowerCommand.includes('note') ||
-      lowerCommand.includes('rating')
+  getProductUnit(sale: Sale): string {
+    const category = sale.productCategory?.toLowerCase() || '';
+    if (
+      category.includes('légume') ||
+      category.includes('fruit') ||
+      category.includes('volaille')
     ) {
-      alert(`Note moyenne: ${this.getAverageRating()}/5`);
-    } else if (
-      lowerCommand.includes('exporter') ||
-      lowerCommand.includes('télécharger')
-    ) {
-      this.exportSales();
+      return 'kg';
+    } else if (category.includes('œuf')) {
+      return 'unité';
+    } else if (category.includes('lait')) {
+      return 'L';
+    } else {
+      return 'unité';
     }
   }
+
+  getStarRating(rating: number): string {
+    let stars = '';
+    for (let i = 1; i <= 5; i++) {
+      stars += i <= rating ? '★' : '☆';
+    }
+    return stars;
+  }
+
+  // Pagination
+  calculatePagination() {
+    this.totalPages = Math.ceil(this.filteredSales.length / this.itemsPerPage);
+    if (this.currentPage > this.totalPages && this.totalPages > 0) {
+      this.currentPage = this.totalPages;
+    }
+  }
+
+  get paginatedSales() {
+    const start = (this.currentPage - 1) * this.itemsPerPage;
+    const end = start + this.itemsPerPage;
+    return this.filteredSales.slice(start, end);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  goToPage(page: number) {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+    }
+  }
+
+  getPageNumbers(): number[] {
+    const totalPages = this.totalPages;
+    const currentPage = this.currentPage;
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - delta && i <= currentPage + delta)
+      ) {
+        range.push(i);
+      }
+    }
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push(-1); // -1 pour les points de suspension
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots.filter((page) => page !== -1) as number[];
+  }
+
+  // Méthodes d'affichage
+  getMostUsedPaymentMethod(): string {
+    if (!this.stats || this.filteredSales.length === 0) return 'N/A';
+
+    const methods = this.stats.byPaymentMethod || {};
+    const entries = Object.entries(methods);
+    if (entries.length === 0) return 'N/A';
+
+    const mostUsed = entries.reduce((a, b) => (a[1] > b[1] ? a : b));
+    return this.getPaymentMethodText(mostUsed[0] as any);
+  }
+
+  getMaxRevenue(): number {
+    if (!this.stats?.monthlyRevenue || this.stats.monthlyRevenue.length === 0)
+      return 1;
+    return Math.max(...this.stats.monthlyRevenue.map((m) => m.revenue));
+  }
+
+  // Notifications
+  private showNotification(
+    message: string,
+    type: 'success' | 'error' | 'info' = 'success'
+  ) {
+    const toast = document.createElement('div');
+    toast.className = `notification toast-${type}`;
+    toast.innerHTML = `
+      <span class="toast-icon">${
+        type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'
+      }</span>
+      <span class="toast-message">${message}</span>
+    `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      if (toast.parentNode === document.body) {
+        document.body.removeChild(toast);
+      }
+    }, 3000);
+  }
+
+  private showModal(title: string, content: string) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container">
+        <div class="modal-header">
+          <h2>${title}</h2>
+          <button class="modal-close">×</button>
+        </div>
+        <div class="modal-content">
+          ${content}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Fermer le modal
+    modal.querySelector('.modal-close')?.addEventListener('click', () => {
+      document.body.removeChild(modal);
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    });
+  }
+
+  // Formatage des valeurs
+  formatStatValue(card: StatCard): string {
+    let formattedValue = '';
+
+    if (card.format === 'currency') {
+      formattedValue = this.formatPrice(card.value);
+    } else if (card.format === 'percentage') {
+      formattedValue = card.value.toFixed(1) + '%';
+    } else if (card.format === 'rating') {
+      formattedValue = card.value.toFixed(1) + '/5';
+    } else {
+      formattedValue = this.salesService.formatNumber(card.value);
+    }
+
+    return (card.prefix || '') + formattedValue + (card.suffix || '');
+  }
+  get totalFilteredSales(): number {
+    return this.filteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
+  }
+
+  // Méthodes utilitaires pour le template
+  abs(value: number): number {
+    return Math.abs(value);
+  }
+
+  getMonthlyTrend(): number {
+    return this.stats?.monthlyTrend ?? 0;
+  }
+
+  isPositiveTrend(): boolean {
+    return this.getMonthlyTrend() > 0;
+  }
+
+  isNegativeTrend(): boolean {
+    return this.getMonthlyTrend() < 0;
+  }
+
+  formatTrend(trend: number | undefined): string {
+    if (trend === undefined) return '0.0%';
+    const prefix = trend > 0 ? '+' : '';
+    return `${prefix}${trend.toFixed(1)}%`;
+  }
+
+
 }

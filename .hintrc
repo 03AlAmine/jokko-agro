@@ -7,9 +7,18 @@
       "default",
       {
         "ignore": [
-          "backdrop-filter"
+          "backdrop-filter",
+          "user-select",
+          "-moz-appearance"
         ]
       }
-    ]
+    ],
+    "axe/text-alternatives": [
+      "default",
+      {
+        "image-alt": "off"
+      }
+    ],
+    "no-inline-styles": "off"
   }
 }

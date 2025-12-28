@@ -1,475 +1,494 @@
+<!-- Nouveau design - add-product.component.html -->
 <div class="add-product-container">
-  <!-- Navigation horizontale -->
-  <header class="top-navigation">
-    <div class="nav-header">
-      <div class="header-left">
-        <a routerLink="/producer/products" class="back-btn">
+  <!-- Header amélioré -->
+  <header class="product-header">
+    <div class="header-content">
+      <div class="header-top">
+        <button class="back-button" routerLink="/producer/products">
           <i class="back-icon">←</i>
-          Retour
-        </a>
-        <div class="page-title">
-          <h1>Nouveau Produit</h1>
-          <p>Ajoutez un nouveau produit à votre catalogue</p>
+          Retour aux produits
+        </button>
+
+        <div class="header-info">
+          <h1 class="page-title">Ajouter un nouveau produit</h1>
+          <p class="page-subtitle">Remplissez les informations pour mettre votre produit en vente</p>
         </div>
       </div>
 
-      <div class="progress-section">
-        <div class="progress-info">
-          <span class="progress-percent">{{ completionPercentage }}%</span>
-          <div class="progress-bar">
-            <div class="progress-fill" [style.width.%]="completionPercentage"></div>
-          </div>
+      <!-- Progress bar verticale -->
+      <div class="vertical-progress">
+        <div class="progress-bar">
+          <div class="progress-fill" [style.height.%]="completionPercentage"></div>
         </div>
-        <div class="header-actions">
-          <button class="action-btn secondary" (click)="saveAsDraft()">
-            <span class="btn-icon">💾</span>
-            Brouillon
-          </button>
-          <button class="action-btn primary"
-                  [disabled]="productForm.invalid || isSubmitting"
-                  (click)="submitForm()">
-            <span *ngIf="!isSubmitting" class="btn-icon">🚀</span>
-            <span *ngIf="isSubmitting" class="spinner"></span>
-            {{ isSubmitting ? 'Publication...' : 'Publier' }}
-          </button>
+        <div class="progress-info">
+          <span class="progress-text">{{ completionPercentage }}% complété</span>
         </div>
       </div>
     </div>
-
-    <!-- Navigation des étapes -->
-    <nav class="steps-navigation">
-      <div class="steps-container">
-        <div *ngFor="let section of sections"
-             class="step-item"
-             [class.active]="currentSection === section.id"
-             [class.completed]="isSectionCompleted(section.id)"
-             (click)="goToSection(section.id)">
-          <div class="step-number">{{ section.number }}</div>
-          <div class="step-info">
-            <div class="step-title">{{ section.title }}</div>
-            <div class="step-desc">{{ section.description }}</div>
-          </div>
-          <div class="step-status">
-            <span *ngIf="isSectionCompleted(section.id)" class="status-icon">✓</span>
-          </div>
-        </div>
-      </div>
-    </nav>
   </header>
 
   <!-- Contenu principal -->
   <main class="main-content">
-    <div class="content-wrapper">
-      <!-- Section 1: Informations de base -->
-      <section id="basic-info" class="form-section" [class.active]="currentSection === 'basic-info'">
-        <div class="section-content">
-          <div class="section-header">
-            <h2 class="section-title">Informations de base</h2>
-            <p class="section-description">Les informations essentielles pour identifier votre produit</p>
-          </div>
-
-          <div class="form-row">
-            <div class="form-field">
-              <label for="name" class="field-label">
-                Nom du produit <span class="required">*</span>
-              </label>
-              <input type="text"
-                     id="name"
-                     formControlName="name"
-                     placeholder="Ex: Tomates bio fraîches du marché"
-                     class="form-input"
-                     [class.error]="showFieldError('name')">
-              <div class="field-hint">Donnez un nom clair et attractif</div>
-              <div class="error-message" *ngIf="showFieldError('name')">
-                <i class="error-icon">⚠️</i> Nom requis (3-100 caractères)
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label for="category" class="field-label">
-                Catégorie <span class="required">*</span>
-              </label>
-              <div class="category-select">
-                <select id="category"
-                        formControlName="category"
-                        class="form-select"
-                        [class.error]="showFieldError('category')">
-                  <option value="" disabled selected>Choisir une catégorie</option>
-                  <option *ngFor="let cat of categories" [value]="cat.id">
-                    {{ cat.icon }} {{ cat.name }}
-                  </option>
-                </select>
-                <i class="select-arrow">▼</i>
-              </div>
-              <div class="error-message" *ngIf="showFieldError('category')">
-                <i class="error-icon">⚠️</i> Sélectionnez une catégorie
-              </div>
-            </div>
-          </div>
-
-          <div class="form-field">
-            <label for="description" class="field-label">
-              Description <span class="required">*</span>
-            </label>
-            <div class="rich-text-container">
-              <textarea id="description"
-                        formControlName="description"
-                        rows="5"
-                        placeholder="Décrivez votre produit en détail..."
-                        class="rich-textarea"
-                        [class.error]="showFieldError('description')"
-                        (input)="updateDescriptionLength($event)">
-              </textarea>
-              <div class="textarea-tools">
-                <div class="text-actions">
-                  <button type="button" class="text-tool" title="Gras"><b>B</b></button>
-                  <button type="button" class="text-tool" title="Italique"><i>I</i></button>
-                  <button type="button" class="text-tool" title="Liste">•</button>
-                </div>
-                <div class="char-counter">
-                  {{ descriptionLength }}/500 caractères
-                </div>
-              </div>
-            </div>
-            <div class="description-tips">
-              <i class="tip-icon">💡</i>
-              <span>Conseil : Mentionnez la fraîcheur, la qualité et les avantages</span>
-            </div>
-            <div class="error-message" *ngIf="showFieldError('description')">
-              <i class="error-icon">⚠️</i> Description requise (10-500 caractères)
-            </div>
-          </div>
+    <div class="form-wrapper">
+      <!-- Navigation latérale des étapes -->
+      <aside class="form-sidebar">
+        <div class="add-sidebar-header">
+          <h3 class="add-sidebar-title">Étapes de création</h3>
+          <p class="add-sidebar-subtitle">Suivez les étapes pour compléter</p>
         </div>
-      </section>
 
-      <!-- Section 2: Prix & Quantité -->
-      <section id="price-quantity" class="form-section" [class.active]="currentSection === 'price-quantity'">
-        <div class="section-content">
-          <div class="section-header">
-            <h2 class="section-title">Prix & Quantité</h2>
-            <p class="section-description">Définissez le prix et les quantités disponibles</p>
-          </div>
-
-          <div class="price-grid">
-            <div class="form-field">
-              <label for="price" class="field-label">
-                Prix unitaire <span class="required">*</span>
-              </label>
-              <div class="price-input-group">
-                <input type="number"
-                       id="price"
-                       formControlName="price"
-                       min="100"
-                       step="50"
-                       placeholder="1500"
-                       class="price-input"
-                       [class.error]="showFieldError('price')"
-                       (input)="updateEstimatedTotal()">
-                <span class="currency">FCFA</span>
-              </div>
-              <div class="field-hint">Prix minimum: 100 FCFA</div>
-              <div class="error-message" *ngIf="showFieldError('price')">
-                <i class="error-icon">⚠️</i> Prix invalide (100-1,000,000 FCFA)
+        <nav class="steps-nav">
+          <div *ngFor="let section of sections"
+               class="step-item"
+               [class.active]="currentSection === section.id"
+               [class.completed]="isSectionCompleted(section.id)"
+               (click)="goToSection(section.id)">
+            <div class="step-marker">
+              <div class="step-number">{{ section.number }}</div>
+              <div class="step-status">
+                <span *ngIf="isSectionCompleted(section.id)" class="completed-icon">✓</span>
               </div>
             </div>
-
-            <div class="form-field">
-              <label for="quantity" class="field-label">
-                Quantité disponible <span class="required">*</span>
-              </label>
-              <input type="number"
-                     id="quantity"
-                     formControlName="quantity"
-                     min="1"
-                     placeholder="50"
-                     class="form-input"
-                     [class.error]="showFieldError('quantity')"
-                     (input)="updateEstimatedTotal()">
-              <div class="error-message" *ngIf="showFieldError('quantity')">
-                <i class="error-icon">⚠️</i> Quantité minimum: 1
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label for="unit" class="field-label">
-                Unité de mesure <span class="required">*</span>
-              </label>
-              <div class="unit-select">
-                <select id="unit"
-                        formControlName="unit"
-                        class="form-select">
-                  <option *ngFor="let unit of units" [value]="unit.id">
-                    {{ unit.symbol }} ({{ unit.name }})
-                  </option>
-                </select>
-                <i class="select-arrow">▼</i>
-              </div>
+            <div class="step-content">
+              <h4 class="step-title">{{ section.title }}</h4>
+              <p class="step-desc">{{ section.description }}</p>
             </div>
           </div>
+        </nav>
 
-          <!-- Calcul total -->
-          <div class="total-estimation" *ngIf="estimatedTotal > 0">
-            <div class="estimation-card">
-              <div class="estimation-icon">💰</div>
-              <div class="estimation-details">
-                <div class="estimation-title">Valeur totale estimée</div>
-                <div class="estimation-price">
-                  {{ estimatedTotal.toLocaleString('fr-FR') }} FCFA
-                </div>
-                <div class="estimation-breakdown">
-                  {{ productForm.get('price')?.value || 0 }} FCFA ×
-                  {{ productForm.get('quantity')?.value || 0 }} unités
-                </div>
-              </div>
-            </div>
+        <!-- Aide rapide -->
+        <div class="help-section">
+          <div class="help-header">
+            <i class="help-icon">💡</i>
+            <h4>Conseils rapides</h4>
           </div>
+          <ul class="help-tips">
+            <li>Utilisez des photos de qualité</li>
+            <li>Soyez précis dans les descriptions</li>
+            <li>Fixez un prix compétitif</li>
+            <li>Indiquez toutes les certifications</li>
+          </ul>
         </div>
-      </section>
+      </aside>
 
-      <!-- Section 3: Images -->
-      <section id="images" class="form-section" [class.active]="currentSection === 'images'">
-        <div class="section-content">
-          <div class="section-header">
-            <h2 class="section-title">Images du produit</h2>
-            <p class="section-description">Ajoutez des photos attractives pour mieux vendre</p>
-          </div>
-
-          <div class="image-upload-zone">
-            <!-- Upload principal -->
-            <div class="main-upload" (click)="triggerImageUpload()" [class.has-image]="mainImagePreview">
-              <input type="file"
-                     id="mainImageUpload"
-                     accept="image/*"
-                     (change)="onMainImageSelected($event)"
-                     class="hidden-input">
-
-              <div *ngIf="!mainImagePreview" class="upload-placeholder">
-                <div class="upload-icon-large">
-                  <svg width="64" height="64" viewBox="0 0 24 24">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
+      <!-- Formulaire principal -->
+      <div class="form-content">
+        <div class="content-container">
+          <form [formGroup]="productForm">
+            <!-- Section 1: Informations de base -->
+            <section id="basic-info" class="form-section" [class.active]="currentSection === 'basic-info'">
+              <div class="section-header">
+                <div class="section-icon">📋</div>
+                <div class="section-title-group">
+                  <h2 class="section-title">Informations de base</h2>
+                  <p class="section-subtitle">Donnez une identité claire à votre produit</p>
                 </div>
-                <div class="upload-text">
-                  <h4>Photo principale</h4>
-                  <p>Cliquez pour ajouter la photo de couverture</p>
-                  <div class="upload-hint">
-                    <span class="hint-tag">Recommandé</span>
-                    <span class="hint-tag">5MB max</span>
+              </div>
+
+              <div class="form-grid">
+                <!-- Nom du produit -->
+                <div class="form-group">
+                  <label for="name" class="form-label">
+                    Nom du produit <span class="required">*</span>
+                  </label>
+                  <input type="text"
+                         id="name"
+                         formControlName="name"
+                         placeholder="Ex: Tomates bio fraîches"
+                         class="form-control"
+                         [class.invalid]="showFieldError('name')">
+                  <div class="form-hint">Un nom descriptif et attrayant</div>
+                  <div *ngIf="showFieldError('name')" class="error-message">
+                    <i class="error-icon">!</i>
+                    Le nom doit contenir entre 3 et 100 caractères
+                  </div>
+                </div>
+
+                <!-- Catégorie -->
+                <div class="form-group">
+                  <label for="category" class="form-label">
+                    Catégorie <span class="required">*</span>
+                  </label>
+                  <div class="category-selector">
+                    <select id="category"
+                            formControlName="category"
+                            class="form-control"
+                            [class.invalid]="showFieldError('category')">
+                      <option value="" disabled selected>Sélectionnez une catégorie</option>
+                      <option *ngFor="let cat of categories" [value]="cat.id">
+                        {{ cat.icon }} {{ cat.name }}
+                      </option>
+                    </select>
+                    <i class="select-arrow">▼</i>
+                  </div>
+                  <div *ngIf="showFieldError('category')" class="error-message">
+                    <i class="error-icon">!</i>
+                    Sélectionnez une catégorie
+                  </div>
+                </div>
+
+                <!-- Description -->
+                <div class="form-group full-width">
+                  <label for="description" class="form-label">
+                    Description détaillée <span class="required">*</span>
+                  </label>
+                  <div class="description-box">
+                    <textarea id="description"
+                              formControlName="description"
+                              rows="6"
+                              placeholder="Décrivez votre produit avec précision (origine, qualités, avantages...)"
+                              class="form-control textarea"
+                              [class.invalid]="showFieldError('description')"
+                              (input)="updateDescriptionLength($event)"></textarea>
+                    <div class="description-footer">
+                      <div class="char-counter">
+                        {{ descriptionLength }}/500 caractères
+                      </div>
+                      <div class="word-count">
+                        {{ countWords(productForm.get('description')?.value) }} mots
+                      </div>
+                    </div>
+                  </div>
+                  <div *ngIf="showFieldError('description')" class="error-message">
+                    <i class="error-icon">!</i>
+                    La description doit contenir entre 10 et 500 caractères
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Section 2: Prix et Quantité -->
+            <section id="price-quantity" class="form-section" [class.active]="currentSection === 'price-quantity'">
+              <div class="section-header">
+                <div class="section-icon">💰</div>
+                <div class="section-title-group">
+                  <h2 class="section-title">Prix et Quantité</h2>
+                  <p class="section-subtitle">Définissez votre offre commerciale</p>
+                </div>
+              </div>
+
+              <div class="form-grid">
+                <!-- Prix unitaire -->
+                <div class="form-group">
+                  <label for="price" class="form-label">
+                    Prix unitaire <span class="required">*</span>
+                  </label>
+                  <div class="price-input">
+                    <input type="number"
+                           id="price"
+                           formControlName="price"
+                           min="100"
+                           step="50"
+                           placeholder="1500"
+                           class="form-control"
+                           [class.invalid]="showFieldError('price')"
+                           (input)="updateEstimatedTotal()">
+                    <span class="currency-label">FCFA</span>
+                  </div>
+                  <div class="form-hint">Prix recommandé: 100 - 1,000,000 FCFA</div>
+                  <div *ngIf="showFieldError('price')" class="error-message">
+                    <i class="error-icon">!</i>
+                    Prix invalide
+                  </div>
+                </div>
+
+                <!-- Quantité -->
+                <div class="form-group">
+                  <label for="quantity" class="form-label">
+                    Quantité disponible <span class="required">*</span>
+                  </label>
+                  <input type="number"
+                         id="quantity"
+                         formControlName="quantity"
+                         min="1"
+                         placeholder="100"
+                         class="form-control"
+                         [class.invalid]="showFieldError('quantity')"
+                         (input)="updateEstimatedTotal()">
+                  <div *ngIf="showFieldError('quantity')" class="error-message">
+                    <i class="error-icon">!</i>
+                    Quantité minimum: 1
+                  </div>
+                </div>
+
+                <!-- Unité -->
+                <div class="form-group">
+                  <label for="unit" class="form-label">
+                    Unité de mesure <span class="required">*</span>
+                  </label>
+                  <div class="unit-grid">
+                    <div *ngFor="let unit of units"
+                         class="unit-option"
+                         [class.selected]="productForm.get('unit')?.value === unit.id"
+                         (click)="productForm.get('unit')?.setValue(unit.id)">
+                      <span class="unit-symbol">{{ unit.symbol }}</span>
+                      <span class="unit-name">{{ unit.name }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div *ngIf="mainImagePreview" class="image-preview-main">
-                <img [src]="mainImagePreview" alt="Image principale">
-                <div class="image-overlay">
-                  <button type="button" class="image-btn change" (click)="triggerImageUpload()">
-                    <i>🔄</i> Changer
-                  </button>
-                  <button type="button" class="image-btn remove" (click)="removeMainImage()">
-                    <i>🗑️</i> Supprimer
-                  </button>
+              <!-- Estimation -->
+              <div class="estimation-card" *ngIf="estimatedTotal > 0">
+                <div class="estimation-icon">📊</div>
+                <div class="estimation-details">
+                  <div class="estimation-label">Valeur totale estimée</div>
+                  <div class="estimation-amount">{{ estimatedTotal.toLocaleString('fr-FR') }} FCFA</div>
+                  <div class="estimation-breakdown">
+                    {{ productForm.get('price')?.value || 0 }} FCFA × {{ productForm.get('quantity')?.value || 0 }} unités
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            <!-- Images additionnelles -->
-            <div class="additional-images-section">
-              <h4 class="sub-section-title">Photos additionnelles</h4>
-              <p class="sub-section-desc">Ajoutez jusqu'à 4 photos supplémentaires</p>
-
-              <div class="additional-images-grid">
-                <div *ngFor="let img of additionalImages; let i = index" class="additional-image-item">
-                  <img [src]="img.preview" [alt]="'Image ' + (i + 1)">
-                  <button class="remove-additional" (click)="removeAdditionalImage(i)">×</button>
-                </div>
-
-                <div *ngIf="additionalImages.length < 4"
-                     class="add-more-item"
-                     (click)="triggerAdditionalUpload()">
-                  <div class="add-icon">+</div>
-                  <span>Ajouter une photo</span>
+            <!-- Section 3: Images -->
+            <section id="images" class="form-section" [class.active]="currentSection === 'images'">
+              <div class="section-header">
+                <div class="section-icon">📸</div>
+                <div class="section-title-group">
+                  <h2 class="section-title">Photos du produit</h2>
+                  <p class="section-subtitle">Une image vaut mille mots</p>
                 </div>
               </div>
+
+              <div class="images-section">
+                <!-- Image principale -->
+                <div class="main-image-upload">
+                  <h4 class="upload-title">Photo principale</h4>
+                  <p class="upload-subtitle">La première image que les acheteurs verront</p>
+
+                  <div class="image-dropzone"
+                       (click)="triggerImageUpload()"
+                       [class.has-image]="mainImagePreview">
+                    <input type="file"
+                           #mainImageUpload
+                           accept="image/*"
+                           (change)="onMainImageSelected($event)"
+                           class="hidden-input"
+                           title="photo">
+
+                    <div *ngIf="!mainImagePreview" class="dropzone-content">
+                      <div class="dropzone-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24">
+                          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                      </div>
+                      <p>Cliquez pour télécharger une photo</p>
+                      <small>PNG, JPG, WebP - Max 5MB</small>
+                    </div>
+
+                    <div *ngIf="mainImagePreview" class="image-preview">
+                      <img [src]="mainImagePreview" alt="Image principale">
+                      <div class="image-actions">
+                        <button type="button" class="image-action" (click)="triggerImageUpload()">
+                          <i>🔄</i> Changer
+                        </button>
+                        <button type="button" class="image-action danger" (click)="removeMainImage()">
+                          <i>🗑️</i> Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Images additionnelles -->
+                <div class="additional-images">
+                  <div class="additional-header">
+                    <h4>Photos additionnelles</h4>
+                    <span class="image-count">{{ additionalImages.length }}/4</span>
+                  </div>
+
+                  <div class="additional-grid">
+                    <div *ngFor="let img of additionalImages; let i = index" class="additional-item">
+                      <img [src]="img.preview" [alt]="'Photo ' + (i + 1)">
+                      <button type="button" class="remove-image" (click)="removeAdditionalImage(i)">×</button>
+                    </div>
+
+                    <div *ngIf="additionalImages.length < 4"
+                         class="add-more-card"
+                         (click)="triggerAdditionalUpload()">
+                      <div class="add-icon">+</div>
+                      <span>Ajouter une photo</span>
+                    </div>
+                  </div>
+
+                  <input type="file"
+                         #additionalImagesUpload
+                         accept="image/*"
+                         multiple
+                         (change)="onAdditionalImagesSelected($event)"
+                         class="hidden-input"
+                         title="file">
+                </div>
+              </div>
+            </section>
+
+            <!-- Section 4: Certifications -->
+            <section id="certifications" class="form-section" [class.active]="currentSection === 'certifications'">
+              <div class="section-header">
+                <div class="section-icon">🏆</div>
+                <div class="section-title-group">
+                  <h2 class="section-title">Certifications</h2>
+                  <p class="section-subtitle">Valorisez la qualité de votre produit</p>
+                </div>
+              </div>
+
+              <div class="certifications-section">
+                <div class="certifications-grid">
+                  <div *ngFor="let cert of certifications"
+                       class="certification-card"
+                       [class.selected]="isCertificationSelected(cert.id)"
+                       (click)="toggleCertification(cert.id)">
+                    <div class="cert-icon">{{ cert.icon }}</div>
+                    <div class="cert-info">
+                      <h5>{{ cert.name }}</h5>
+                      <p>{{ cert.description }}</p>
+                    </div>
+                    <div class="cert-check">
+                      <div class="checkmark" [class.checked]="isCertificationSelected(cert.id)"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Option Bio -->
+                <div class="organic-toggle">
+                  <label class="toggle-label">
+                    <input type="checkbox" formControlName="isOrganic" class="toggle-input">
+                    <div class="toggle-slider">
+                      <span class="toggle-icon">🌱</span>
+                      <span class="toggle-text">Produit biologique certifié</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <!-- Section 5: Détails supplémentaires -->
+            <section id="additional-details" class="form-section" [class.active]="currentSection === 'additional-details'">
+              <div class="section-header">
+                <div class="section-icon">📝</div>
+                <div class="section-title-group">
+                  <h2 class="section-title">Détails supplémentaires</h2>
+                  <p class="section-subtitle">Informations complémentaires pour les acheteurs</p>
+                </div>
+              </div>
+
+              <div class="details-grid">
+                <div class="form-group">
+                  <label for="harvestDate" class="form-label">Date de récolte</label>
+                  <div class="date-input">
+                    <input type="date"
+                           id="harvestDate"
+                           formControlName="harvestDate"
+                           class="form-control">
+                    <i class="date-icon">📅</i>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="expirationDate" class="form-label">Date d'expiration</label>
+                  <div class="date-input">
+                    <input type="date"
+                           id="expirationDate"
+                           formControlName="expirationDate"
+                           class="form-control">
+                    <i class="date-icon">⏳</i>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="storageConditions" class="form-label">Conditions de conservation</label>
+                  <input type="text"
+                         id="storageConditions"
+                         formControlName="storageConditions"
+                         placeholder="Ex: Conserver au frais entre 2°C et 8°C"
+                         class="form-control">
+                </div>
+
+                <div class="form-group">
+                  <label for="location" class="form-label">Lieu de production</label>
+                  <div class="location-input">
+                    <i class="location-icon">📍</i>
+                    <input type="text"
+                           id="location"
+                           formControlName="location"
+                           placeholder="Ex: Région de Thiès, Sénégal"
+                           class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="contactPhone" class="form-label">Contact téléphonique</label>
+                  <div class="phone-input">
+                    <span class="phone-prefix">+221</span>
+                    <input type="tel"
+                           id="contactPhone"
+                           formControlName="contactPhone"
+                           placeholder="77 123 45 67"
+                           class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="minOrderQuantity" class="form-label">Quantité minimale</label>
+                  <div class="quantity-input">
+                    <input type="number"
+                           id="minOrderQuantity"
+                           formControlName="minOrderQuantity"
+                           min="1"
+                           value="1"
+                           class="form-control">
+                    <span class="quantity-label">unités minimum</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </form>
+
+          <!-- Actions en bas -->
+          <div class="form-actions">
+            <div class="actions-left">
+              <button type="button"
+                      class="action-btn secondary"
+                      (click)="saveAsDraft()"
+                      [disabled]="isSubmitting">
+                <i class="btn-icon">💾</i>
+                Sauvegarder comme brouillon
+              </button>
+
+              <button type="button"
+                      class="action-btn outline"
+                      (click)="showPreview()">
+                <i class="btn-icon">👁️</i>
+                Prévisualiser
+              </button>
             </div>
 
-            <input type="file"
-                   id="additionalImagesUpload"
-                   accept="image/*"
-                   multiple
-                   (change)="onAdditionalImagesSelected($event)"
-                   class="hidden-input">
-          </div>
+            <div class="actions-right">
+              <button type="button"
+                      class="action-btn secondary"
+                      (click)="cancelForm()"
+                      [disabled]="isSubmitting">
+                Annuler
+              </button>
 
-          <!-- Conseils images -->
-          <div class="image-tips-card">
-            <div class="tips-header">
-              <i class="tips-icon">📸</i>
-              <h4>Conseils pour de belles photos</h4>
+              <button type="button"
+                      class="action-btn primary"
+                      [disabled]="isSubmitting || productForm.invalid"
+                      (click)="validateAndSubmit()">
+                <span *ngIf="!isSubmitting">
+                  <i class="btn-icon">🚀</i>
+                  Publier le produit
+                </span>
+                <span *ngIf="isSubmitting" class="loading">
+                  <span class="spinner"></span>
+                  Publication en cours...
+                </span>
+              </button>
             </div>
-            <ul class="tips-list">
-              <li>Utilisez la lumière du jour</li>
-              <li>Prenez des photos sous différents angles</li>
-              <li>Montrez le produit en situation réelle</li>
-              <li>Évitez les arrière-plans chargés</li>
-              <li>Assurez-vous que la photo soit nette</li>
-            </ul>
           </div>
         </div>
-      </section>
-
-      <!-- Section 4: Certifications -->
-      <section id="certifications" class="form-section" [class.active]="currentSection === 'certifications'">
-        <div class="section-content">
-          <div class="section-header">
-            <h2 class="section-title">Certifications & Qualités</h2>
-            <p class="section-description">Mettez en valeur les qualités de votre produit</p>
-          </div>
-
-          <div class="certifications-selector">
-            <h4 class="selector-title">Sélectionnez les certifications applicables</h4>
-
-            <div class="certifications-grid">
-              <div *ngFor="let cert of certifications"
-                   class="certification-card"
-                   [class.selected]="isCertificationSelected(cert.id)"
-                   (click)="toggleCertification(cert.id)">
-                <div class="cert-icon">{{ cert.icon }}</div>
-                <div class="cert-content">
-                  <h5>{{ cert.name }}</h5>
-                  <p>{{ cert.description }}</p>
-                </div>
-                <div class="cert-checkbox">
-                  <div class="checkbox" [class.checked]="isCertificationSelected(cert.id)"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Option Bio -->
-          <div class="organic-option">
-            <label class="option-toggle">
-              <input type="checkbox" formControlName="isOrganic">
-              <div class="toggle-slider">
-                <span class="toggle-icon">🌱</span>
-                <span class="toggle-label">Produit issu de l'agriculture biologique</span>
-              </div>
-              <span class="toggle-badge">Certifié</span>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <!-- Section 5: Détails supplémentaires -->
-      <section id="additional-details" class="form-section" [class.active]="currentSection === 'additional-details'">
-        <div class="section-content">
-          <div class="section-header">
-            <h2 class="section-title">Détails supplémentaires</h2>
-            <p class="section-description">Informations complémentaires pour les acheteurs</p>
-          </div>
-
-          <div class="details-grid">
-            <div class="form-field">
-              <label for="harvestDate" class="field-label">Date de récolte</label>
-              <div class="date-picker">
-                <input type="date"
-                       id="harvestDate"
-                       formControlName="harvestDate"
-                       class="form-input">
-                <i class="date-icon">📅</i>
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label for="expirationDate" class="field-label">Date d'expiration</label>
-              <div class="date-picker">
-                <input type="date"
-                       id="expirationDate"
-                       formControlName="expirationDate"
-                       class="form-input">
-                <i class="date-icon">⏳</i>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-field">
-            <label for="storageConditions" class="field-label">Conditions de conservation</label>
-            <input type="text"
-                   id="storageConditions"
-                   formControlName="storageConditions"
-                   placeholder="Ex: Conserver au frais entre 2°C et 8°C"
-                   class="form-input">
-          </div>
-
-          <div class="details-grid">
-            <div class="form-field">
-              <label for="location" class="field-label">Lieu de production</label>
-              <div class="location-input">
-                <i class="location-icon">📍</i>
-                <input type="text"
-                       id="location"
-                       formControlName="location"
-                       placeholder="Ex: Région de Thiès, Sénégal"
-                       class="form-input">
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label for="contactPhone" class="field-label">Contact téléphonique</label>
-              <div class="phone-input">
-                <span class="phone-prefix">+221</span>
-                <input type="tel"
-                       id="contactPhone"
-                       formControlName="contactPhone"
-                       placeholder="77 123 45 67"
-                       class="form-input">
-              </div>
-            </div>
-          </div>
-
-          <div class="form-field">
-            <label for="minOrderQuantity" class="field-label">
-              <i class="field-icon">📦</i>
-              Quantité minimale de commande
-            </label>
-            <div class="min-order-input">
-              <input type="number"
-                     id="minOrderQuantity"
-                     formControlName="minOrderQuantity"
-                     min="1"
-                     placeholder="1"
-                     class="form-input">
-              <span class="order-unit">unités</span>
-            </div>
-            <div class="field-hint">
-              Les acheteurs devront commander au moins cette quantité
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   </main>
-
-  <!-- Navigation en bas -->
-  <footer class="bottom-navigation">
-    <div class="nav-controls">
-      <button class="nav-btn prev" (click)="goToPreviousSection()" [disabled]="isFirstSection()">
-        <i class="nav-icon">←</i>
-        Précédent
-      </button>
-
-      <div class="nav-dots">
-        <span *ngFor="let section of sections"
-              class="nav-dot"
-              [class.active]="currentSection === section.id"
-              [class.completed]="isSectionCompleted(section.id)"
-              (click)="goToSection(section.id)">
-        </span>
-      </div>
-
-      <button class="nav-btn next" (click)="goToNextSection()" [disabled]="isLastSection()">
-        Suivant
-        <i class="nav-icon">→</i>
-      </button>
-    </div>
-  </footer>
 </div>

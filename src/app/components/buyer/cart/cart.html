@@ -1,22 +1,77 @@
 <div class="cart-container">
-  <!-- En-tête -->
+  <!-- En-tête amélioré avec statistiques -->
   <div class="cart-header">
     <div class="header-left">
       <h1><span class="header-icon">🛒</span> Mon Panier</h1>
       <p class="subtitle">Vérifiez vos articles et passez à la caisse</p>
+      <div class="cart-stats" *ngIf="cartItems.length > 0">
+        <span class="stat-item">📦 {{cartItems.length}} article(s)</span>
+        <span class="stat-item">💰 {{formatPrice(getSubtotal())}}</span>
+        <span class="stat-item"
+          >🚚 {{getSelectedItemsCount()}} sélectionné(s)</span
+        >
+      </div>
     </div>
     <div class="header-right">
+      <button
+        class="secondary-btn"
+        (click)="saveCartForLater()"
+        title="Sauvegarder le panier"
+      >
+        💾 Sauvegarder
+      </button>
       <button class="continue-btn" (click)="continueShopping()">
         ← Continuer mes achats
+      </button>
+      <!-- AJOUTEZ CE BOUTON -->
+      <button class="action-btn" (click)="goToOrders()">
+        📦 Voir mes commandes
       </button>
     </div>
   </div>
 
-  <!-- Message panier vide -->
+  <div
+    *ngFor="let notification of notifications"
+    class="notification {{notification.type}}"
+    [class.removing]="notification.removing"
+  >
+    <span class="notification-icon">
+      {{notification.type === 'success' ? '✅' : notification.type === 'error' ?
+      '❌' : notification.type === 'warning' ? '⚠️' : 'ℹ️'}}
+    </span>
+    <span class="notification-content">{{notification.message}}</span>
+    <button
+      class="notification-close"
+      (click)="removeNotification(notification.id)"
+    >
+      ×
+    </button>
+  </div>
+  <!-- Message panier vide amélioré -->
   <div *ngIf="cartItems.length === 0" class="empty-cart">
     <div class="empty-icon">🛒</div>
     <h2>Votre panier est vide</h2>
     <p>Ajoutez des produits frais depuis le marché</p>
+
+    <!-- Panier sauvegardé -->
+    <div
+      *ngIf="savedCart && savedCart.items.length > 0"
+      class="saved-cart-section"
+    >
+      <h4>📋 Panier sauvegardé</h4>
+      <div class="saved-items">
+        <div *ngFor="let item of savedCart.items" class="saved-item">
+          <span>{{item.name}} × {{item.quantity}}</span>
+          <button class="btn-small" (click)="restoreSavedItem(item.id)">
+            Restaurer
+          </button>
+        </div>
+      </div>
+      <button class="btn-secondary" (click)="restoreAllSavedItems()">
+        🔄 Restaurer tout le panier
+      </button>
+    </div>
+
     <button class="btn-primary" routerLink="/buyer/market">
       🛍️ Découvrir le marché
     </button>
@@ -24,8 +79,21 @@
 
   <!-- Contenu du panier -->
   <div *ngIf="cartItems.length > 0" class="cart-content">
+    <!-- Barre d'actions rapides -->
+    <div class="quick-actions">
+      <button class="action-btn" (click)="clearCart()">
+        🗑️ Vider le panier
+      </button>
+      <button class="action-btn" (click)="shareCart()">
+        📤 Partager le panier
+      </button>
+      <button class="action-btn" (click)="saveCartForLater()">
+        💾 Sauvegarder pour plus tard
+      </button>
+    </div>
+
     <div class="cart-layout">
-      <!-- Section gauche : Articles -->
+      <!-- Section gauche : Articles améliorée -->
       <div class="cart-items-section">
         <!-- En-tête des articles -->
         <div class="items-header">
@@ -42,122 +110,251 @@
               >
             </label>
           </div>
-          <div class="items-count">
-            {{ cartItems.length }} article{{ cartItems.length > 1 ? 's' : '' }}
+          <div class="header-actions">
+            <span class="items-count">
+              {{ cartItems.length }} article{{ cartItems.length > 1 ? 's' : ''
+              }} • Total: {{ formatPrice(getSubtotal()) }}
+            </span>
+            <button class="btn-sort" (click)="toggleSort()">
+              🔄 Trier par: {{sortBy === 'name' ? 'Nom' : 'Prix'}}
+            </button>
           </div>
         </div>
 
-        <!-- Liste des articles -->
+        <!-- Liste des articles avec tri -->
         <div class="items-list">
-          <div *ngFor="let item of cartItems" class="cart-item">
+          <div
+            *ngFor="let item of getSortedItems()"
+            class="cart-item"
+            [class.low-stock]="item.quantity > item.maxQuantity * 0.8"
+          >
             <div class="item-select">
               <label class="checkbox-label">
                 <input
                   type="checkbox"
                   [checked]="item.selected"
                   (change)="toggleSelectItem(item.id)"
+                  title="Sélectionner l'article"
                 />
                 <span class="checkbox-custom"></span>
               </label>
             </div>
 
-            <div class="item-image">
-              {{ item.image }}
-              <span *ngIf="item.certified" class="certified-badge">✔</span>
+            <!-- Image avec overlay d'informations -->
+            <div class="item-image-container">
+              <div class="item-image">
+                <img
+                  *ngIf="isImageUrl(item.imageUrl)"
+                  [src]="item.imageUrl"
+                  [alt]="item.name"
+                  (error)="handleImageError($event)"
+                />
+
+                <!-- CAS 2 : emoji -->
+                <span *ngIf="!isImageUrl(item.imageUrl)" class="emoji-image">
+                  {{ item.imageUrl || '🛍️' }}
+                </span>
+                <span
+                  *ngIf="item.certified"
+                  class="certified-badge"
+                  title="Produit certifié"
+                  >✔</span
+                >
+              </div>
+              <div class="image-overlay" *ngIf="item.discount">
+                <span class="discount-badge">-{{item.discount}}%</span>
+              </div>
             </div>
 
             <div class="item-details">
               <div class="item-header">
-                <h3 class="item-name">{{ item.name }}</h3>
-                <button
-                  class="remove-btn"
-                  (click)="removeItem(item.id)"
-                  title="Retirer"
-                >
-                  ✕
-                </button>
+                <div>
+                  <h3 class="item-name">{{ item.name }}</h3>
+                  <div class="item-category">{{item.category}}</div>
+                </div>
+                <div class="item-actions">
+                  <button
+                    class="remove-btn"
+                    (click)="removeItem(item.id)"
+                    title="Retirer"
+                  >
+                    ✕
+                  </button>
+                  <button
+                    class="save-btn"
+                    (click)="saveItemForLater(item.id)"
+                    title="Sauvegarder pour plus tard"
+                  >
+                    💾
+                  </button>
+                </div>
               </div>
 
-              <div class="item-producer">Producteur: {{ item.producer }}</div>
+              <div class="item-producer">
+                👨‍🌾 Producteur: {{ item.producer }}
+                <span class="producer-rating" *ngIf="item.producerRating">
+                  ⭐ {{item.producerRating}}
+                </span>
+              </div>
 
               <div class="item-badges">
                 <span *ngIf="item.certified" class="badge certified"
                   >Certifié</span
                 >
                 <span *ngIf="item.organic" class="badge organic">Bio</span>
+                <span *ngIf="item.local" class="badge local">Local</span>
+                <span *ngIf="item.seasonal" class="badge seasonal"
+                  >De saison</span
+                >
                 <span class="badge delivery">
-                  {{ item.deliveryType === 'pickup' ? 'À retirer' : 'Livraison'
-                  }}
+                  {{ item.deliveryType === 'pickup' ? '🛵 À retirer' : '🚚
+                  Livraison' }}
                 </span>
               </div>
 
+              <!-- Notes avec suggestions -->
               <div class="item-notes">
+                <div
+                  class="notes-suggestions"
+                  *ngIf="noteSuggestions.length > 0"
+                >
+                  <span class="suggestions-label">Suggestions:</span>
+                  <button
+                    *ngFor="let suggestion of noteSuggestions"
+                    class="suggestion-btn"
+                    (click)="applyNoteSuggestion(item.id, suggestion)"
+                  >
+                    {{suggestion}}
+                  </button>
+                </div>
                 <input
                   type="text"
-                  [value]="item.notes || ''"
+                  [(ngModel)]="item.notes"
                   (input)="updateItemNotes(item.id, $any($event.target).value)"
                   placeholder="Ajouter une note pour le producteur..."
                   class="notes-input"
+                  [class.has-note]="item.notes"
                 />
               </div>
             </div>
 
+            <!-- Quantité améliorée -->
             <div class="item-quantity">
               <div class="quantity-controls">
                 <button
                   class="qty-btn"
                   (click)="updateQuantity(item.id, -1)"
                   [disabled]="item.quantity <= 1"
+                  title="Réduire"
                 >
                   −
                 </button>
-                <span class="qty-value"
-                  >{{ item.quantity }} {{ item.unit }}</span
-                >
+                <input
+                  type="number"
+                  [(ngModel)]="item.quantity"
+                  (change)="validateQuantity(item)"
+                  min="1"
+                  [max]="item.maxQuantity"
+                  class="qty-input"
+                  title="Quantité"
+                />
                 <button
                   class="qty-btn"
                   (click)="updateQuantity(item.id, 1)"
                   [disabled]="item.quantity >= item.maxQuantity"
+                  title="Augmenter"
                 >
                   +
                 </button>
               </div>
-              <div class="qty-max">Max: {{ item.maxQuantity }}</div>
+              <div class="qty-info">
+                <div class="qty-max">Max: {{ item.maxQuantity }}</div>
+                <div
+                  *ngIf="item.quantity > item.maxQuantity * 0.8"
+                  class="qty-warning"
+                >
+                  ⚠️ Stock limité
+                </div>
+              </div>
             </div>
 
+            <!-- Prix amélioré -->
             <div class="item-price">
+              <div class="price-original" *ngIf="item.originalPrice">
+                {{ formatPrice(item.originalPrice * item.quantity) }}
+              </div>
               <div class="price-main">
-                {{ formatPrice(item.price * item.quantity) }}
+                {{ formatPrice(calculateItemPrice(item)) }}
+                <span *ngIf="item.originalPrice" class="price-savings">
+                  (Économisez {{ formatPrice(calculateSavings(item)) }})
+                </span>
               </div>
               <div class="price-unit">
-                {{ formatPrice(item.price) }} / {{ item.unit }}
+                {{ formatPrice(getUnitPrice(item)) }} / {{ item.unit }}
               </div>
               <div *ngIf="getItemDeliveryFee(item) > 0" class="price-delivery">
                 + {{ formatPrice(getItemDeliveryFee(item)) }} livraison
               </div>
+              <div *ngIf="item.bulkDiscount" class="bulk-discount">
+                🏷️ Réduction volume: {{item.bulkDiscount}}%
+              </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Estimation d'économies -->
+        <div class="savings-estimation" *ngIf="getTotalSavings() > 0">
+          <div class="savings-icon">💰</div>
+          <div class="savings-content">
+            <strong
+              >Vous économisez {{ formatPrice(getTotalSavings()) }} !</strong
+            >
+            <span>Grâce aux promotions et réductions</span>
           </div>
         </div>
       </div>
 
-      <!-- Section droite : Récapitulatif -->
+      <!-- Section droite : Récapitulatif amélioré -->
       <div class="cart-summary-section">
         <!-- Récapitulatif de commande -->
         <div class="summary-card">
-          <h3>Récapitulatif de commande</h3>
+          <h3>📋 Récapitulatif de commande</h3>
 
           <div class="summary-details">
             <div class="summary-row">
-              <span
-                >Sous-total ({{ getSelectedItemsCount() }} article{{
-                getSelectedItemsCount() > 1 ? 's' : '' }})</span
-              >
+              <span>Sous-total</span>
               <span>{{ formatPrice(getSubtotal()) }}</span>
+            </div>
+
+            <!-- Détails des économies -->
+            <div *ngIf="getTotalSavings() > 0" class="summary-row savings">
+              <span>Économies réalisées</span>
+              <span class="savings-amount"
+                >-{{ formatPrice(getTotalSavings()) }}</span
+              >
             </div>
 
             <div class="summary-row">
               <span>Frais de livraison</span>
-              <span>{{ formatPrice(getDeliveryFee()) }}</span>
+              <span>
+                {{ formatPrice(getDeliveryFee()) }}
+                <span
+                  class="fee-details"
+                  (click)="showDeliveryDetails = !showDeliveryDetails"
+                >
+                  ℹ️
+                </span>
+              </span>
+            </div>
+
+            <div *ngIf="showDeliveryDetails" class="delivery-breakdown">
+              <div
+                *ngFor="let item of getDeliveryBreakdown()"
+                class="breakdown-item"
+              >
+                <span>{{item.name}}</span>
+                <span>{{formatPrice(item.fee)}}</span>
+              </div>
             </div>
 
             <div class="summary-row">
@@ -165,16 +362,45 @@
               <span>{{ formatPrice(getPaymentFee()) }}</span>
             </div>
 
-            <!-- Coupon -->
+            <!-- Coupon amélioré -->
             <div class="coupon-section">
+              <div class="coupon-header">
+                <h4>🎁 Code promo</h4>
+                <button
+                  class="btn-small"
+                  (click)="showAvailableCoupons = !showAvailableCoupons"
+                >
+                  Voir les coupons disponibles
+                </button>
+              </div>
+
+              <div *ngIf="showAvailableCoupons" class="available-coupons">
+                <div
+                  *ngFor="let coupon of availableCoupons"
+                  class="coupon-option"
+                  (click)="applyCoupon(coupon.code)"
+                >
+                  <div class="coupon-code">{{coupon.code}}</div>
+                  <div class="coupon-desc">{{coupon.description}}</div>
+                  <div class="coupon-expiry" *ngIf="coupon.expiry">
+                    ⏳ {{coupon.expiry}}
+                  </div>
+                </div>
+              </div>
+
               <div *ngIf="!appliedCoupon" class="coupon-input">
                 <input
                   type="text"
                   [(ngModel)]="couponCode"
-                  placeholder="Code promo"
+                  placeholder="Entrez votre code promo"
                   class="coupon-field"
+                  (keyup.enter)="applyCoupon()"
                 />
-                <button class="coupon-btn" (click)="applyCoupon()">
+                <button
+                  class="coupon-btn"
+                  (click)="applyCoupon()"
+                  [disabled]="!couponCode"
+                >
                   Appliquer
                 </button>
               </div>
@@ -182,14 +408,25 @@
               <div *ngIf="appliedCoupon" class="coupon-applied">
                 <div class="coupon-info">
                   <span class="coupon-code">{{ appliedCoupon.code }}</span>
+                  <span class="coupon-desc"
+                    >{{ appliedCoupon.description }}</span
+                  >
                   <span class="coupon-discount">
                     -{{ appliedCoupon.discount }}{{ appliedCoupon.type ===
                     'percentage' ? '%' : ' FCFA' }}
                   </span>
                 </div>
-                <button class="coupon-remove" (click)="removeCoupon()">
-                  ✕
-                </button>
+                <div class="coupon-actions">
+                  <button
+                    class="coupon-share"
+                    (click)="shareCoupon(appliedCoupon!.code)"
+                  >
+                    📤
+                  </button>
+                  <button class="coupon-remove" (click)="removeCoupon()">
+                    ✕
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -197,57 +434,120 @@
               <span>Réduction coupon</span>
               <span>-{{ formatPrice(getCouponDiscount()) }}</span>
             </div>
+
+            <!-- Estimation des points de fidélité -->
+            <div class="loyalty-points" *ngIf="getLoyaltyPoints() > 0">
+              <div class="points-icon">⭐</div>
+              <div class="points-content">
+                <strong>{{getLoyaltyPoints()}} points de fidélité</strong>
+                <span>à gagner avec cette commande</span>
+              </div>
+            </div>
           </div>
 
           <div class="summary-total">
-            <span>Total</span>
-            <span class="total-amount">{{ formatPrice(getTotal()) }}</span>
+            <div class="total-label">
+              <span>Total à payer</span>
+              <div class="tax-info">TVA incluse</div>
+            </div>
+            <div class="total-amount">{{ formatPrice(getTotal()) }}</div>
+          </div>
+
+          <div class="summary-installments" *ngIf="showInstallmentOptions()">
+            <div
+              class="installment-option"
+              *ngFor="let option of getInstallmentOptions()"
+              (click)="selectInstallmentOption(option)"
+            >
+              <span
+                >{{option.months}} mois ×
+                {{formatPrice(option.monthlyPayment)}}</span
+              >
+              <span class="installment-total"
+                >{{formatPrice(option.total)}}</span
+              >
+            </div>
           </div>
         </div>
 
-        <!-- Options de livraison -->
+        <!-- Options de livraison améliorées -->
         <div class="delivery-card">
           <h3>📦 Options de livraison</h3>
 
+          <div class="delivery-time-estimate">
+            ⏱️ Livraison estimée: {{getEstimatedDeliveryTime()}}
+          </div>
+
           <div class="delivery-options">
             <div
-              *ngFor="let option of deliveryOptions"
+              *ngFor="let option of getFilteredDeliveryOptions()"
               class="delivery-option"
               [class.selected]="selectedDeliveryOption === option.id"
-              (click)="selectedDeliveryOption = option.id"
+              [class.recommended]="option.recommended"
+              (click)="selectDeliveryOption(option.id)"
             >
               <div class="option-header">
-                <div class="option-name">{{ option.name }}</div>
+                <div class="option-info">
+                  <div class="option-name">{{ option.name }}</div>
+                  <div class="option-tags">
+                    <span *ngIf="option.fastest" class="tag fastest"
+                      >⚡ Rapide</span
+                    >
+                    <span *ngIf="option.cheapest" class="tag cheapest"
+                      >💰 Économique</span
+                    >
+                  </div>
+                </div>
                 <div class="option-price">{{ formatPrice(option.price) }}</div>
               </div>
 
               <div class="option-details">
                 <div class="option-time">⏱️ {{ option.time }}</div>
+                <div class="option-availability" *ngIf="option.availableSlots">
+                  📅 {{option.availableSlots}} créneaux disponibles
+                </div>
                 <p class="option-description">{{ option.description }}</p>
+                <div class="option-features" *ngIf="option.features">
+                  <span *ngFor="let feature of option.features" class="feature">
+                    ✅ {{feature}}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Adresse de livraison -->
+          <!-- Adresse de livraison améliorée -->
           <div
             *ngIf="selectedDeliveryOption.includes('delivery')"
             class="delivery-address"
           >
-            <h4>Adresse de livraison</h4>
+            <div class="address-header">
+              <h4>📍 Adresse de livraison</h4>
+              <button class="btn-small" (click)="useCurrentLocation()">
+                📍 Utiliser ma position
+              </button>
+            </div>
 
             <div class="address-form">
               <div class="form-group">
+                <label>Adresse complète *</label>
                 <input
                   type="text"
                   [(ngModel)]="deliveryAddress.street"
-                  placeholder="Adresse complète"
+                  placeholder="Rue, numéro, bâtiment..."
                   class="form-input"
+                  [class.error]="addressErrors.street"
                 />
+                <div *ngIf="addressErrors.street" class="error-message">
+                  {{addressErrors.street}}
+                </div>
               </div>
 
               <div class="form-row">
                 <div class="form-group">
-                  <select [(ngModel)]="deliveryAddress.city" class="form-input">
+                  <label>Ville *</label>
+                  <select [(ngModel)]="deliveryAddress.city" class="form-input" title="Sélectionnez une ville" >
+                    <option value="">Sélectionnez une ville</option>
                     <option value="Dakar">Dakar</option>
                     <option value="Thiès">Thiès</option>
                     <option value="Saint-Louis">Saint-Louis</option>
@@ -256,105 +556,236 @@
                 </div>
 
                 <div class="form-group">
+                  <label>Code postal</label>
+                  <input
+                    type="text"
+                    [(ngModel)]="deliveryAddress.zipCode"
+                    placeholder="Code postal"
+                    class="form-input"
+                  />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Téléphone *</label>
                   <input
                     type="tel"
                     [(ngModel)]="deliveryAddress.phone"
-                    placeholder="Téléphone"
+                    placeholder="+221 XX XXX XX XX"
+                    class="form-input"
+                    [class.error]="addressErrors.phone"
+                  />
+                  <div *ngIf="addressErrors.phone" class="error-message">
+                    {{addressErrors.phone}}
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Adresse email</label>
+                  <input
+                    type="email"
+                    [(ngModel)]="deliveryAddress.email"
+                    placeholder="email@exemple.com"
                     class="form-input"
                   />
                 </div>
               </div>
 
               <div class="form-group">
+                <label>Instructions de livraison (optionnel)</label>
                 <textarea
                   [(ngModel)]="deliveryAddress.instructions"
-                  placeholder="Instructions de livraison (porte, étage, etc.)"
+                  placeholder="Porte, étage, code d'entrée, lieu de dépôt..."
                   class="form-textarea"
-                  rows="2"
+                  rows="3"
                 ></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="saveAddress" />
+                  <span class="checkbox-custom"></span>
+                  <span
+                    >Sauvegarder cette adresse pour les prochaines
+                    commandes</span
+                  >
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Points de retrait -->
+          <div
+            *ngIf="selectedDeliveryOption.includes('pickup')"
+            class="pickup-points"
+          >
+            <h4>📍 Points de retrait disponibles</h4>
+            <div class="pickup-options">
+              <div
+                *ngFor="let point of pickupPoints"
+                class="pickup-option"
+                [class.selected]="selectedPickupPoint === point.id"
+                (click)="selectPickupPoint(point.id)"
+              >
+                <div class="pickup-name">{{point.name}}</div>
+                <div class="pickup-address">{{point.address}}</div>
+                <div class="pickup-hours">🕒 {{point.hours}}</div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Méthodes de paiement -->
+        <!-- Méthodes de paiement améliorées -->
         <div class="payment-card">
           <h3>💳 Méthode de paiement</h3>
 
           <div class="payment-options">
             <div
-              *ngFor="let method of paymentMethods"
+              *ngFor="let method of getFilteredPaymentMethods()"
               class="payment-option"
               [class.selected]="selectedPaymentMethod === method.id"
+              [class.recommended]="method.recommended"
               (click)="selectedPaymentMethod = method.id"
             >
               <div class="payment-icon">{{ method.icon }}</div>
               <div class="payment-info">
                 <div class="payment-name">{{ method.name }}</div>
                 <div class="payment-description">{{ method.description }}</div>
+                <div class="payment-promo" *ngIf="method.promo">
+                  🎁 {{method.promo}}
+                </div>
               </div>
               <div class="payment-fee">
                 {{ method.fee > 0 ? '+' + formatPrice(method.fee) : 'Gratuit' }}
               </div>
             </div>
           </div>
+
+          <!-- Paiement en plusieurs fois -->
+          <div *ngIf="showInstallmentOptions()" class="installment-toggle">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="useInstallments" />
+              <span class="checkbox-custom"></span>
+              <span>Payer en plusieurs fois</span>
+            </label>
+          </div>
+
+          <!-- Section de sécurité -->
+          <div class="payment-security">
+            <div class="security-icons">
+              <span>🔒</span>
+              <span>🛡️</span>
+              <span>✅</span>
+            </div>
+            <div class="security-info">
+              <strong>Paiement 100% sécurisé</strong>
+              <span
+                >Cryptage SSL • Garantie blockchain • Protection des
+                données</span
+              >
+            </div>
+          </div>
         </div>
 
-        <!-- Bouton de commande -->
+        <!-- Bouton de commande amélioré -->
         <div class="checkout-card">
           <div class="checkout-summary">
             <div class="checkout-total">
               <span>Total à payer</span>
               <span class="amount">{{ formatPrice(getTotal()) }}</span>
             </div>
+
+            <div class="checkout-details">
+              <div class="detail-item">
+                <span>Dont TVA:</span>
+                <span>{{ formatPrice(calculateTax()) }}</span>
+              </div>
+              <div class="detail-item" *ngIf="getCouponDiscount() > 0">
+                <span>Dont réduction:</span>
+                <span>-{{ formatPrice(getCouponDiscount()) }}</span>
+              </div>
+            </div>
+
             <p class="checkout-note">
-              Inclut les frais de livraison et de paiement
+              <span>🔒 Paiement sécurisé</span>
+              <span>🛡️ Garantie blockchain</span>
+              <span>✅ Satisfaction garantie</span>
             </p>
           </div>
 
-          <button
-            class="checkout-btn"
-            (click)="proceedToCheckout()"
-            [disabled]="!canCheckout() || isCheckingOut"
-            [class.loading]="isCheckingOut"
-          >
-            <span *ngIf="!isCheckingOut" class="btn-content">
-              <span class="btn-icon">✅</span>
-              Commander maintenant
-            </span>
+          <div class="checkout-buttons">
+            <button
+              class="checkout-btn btn-primary"
+              (click)="proceedToCheckout()"
+              [disabled]="!canCheckout() || isCheckingOut"
+              [class.loading]="isCheckingOut"
+            >
+              <span *ngIf="!isCheckingOut" class="btn-content">
+                <span class="btn-icon">✅</span>
+                Commander maintenant
+                <span class="btn-subtext">{{ formatPrice(getTotal()) }}</span>
+              </span>
 
-            <span *ngIf="isCheckingOut" class="btn-content">
-              <span class="spinner"></span>
-              Traitement en cours...
-            </span>
-          </button>
+              <span *ngIf="isCheckingOut" class="btn-content">
+                <span class="spinner"></span>
+                Traitement en cours...
+              </span>
+            </button>
+
+            <button class="checkout-btn btn-secondary" (click)="requestQuote()">
+              📋 Demander un devis
+            </button>
+
+            <button
+              class="checkout-btn btn-tertiary"
+              (click)="saveOrderAsDraft()"
+            >
+              💾 Enregistrer comme brouillon
+            </button>
+          </div>
+
+          <div class="checkout-guarantees">
+            <div class="guarantee">
+              <span>🚚 Livraison garantie</span>
+              <span class="guarantee-desc">ou remboursé</span>
+            </div>
+            <div class="guarantee">
+              <span>🔄 48h pour changer d'avis</span>
+            </div>
+            <div class="guarantee">
+              <span>📞 Support 7j/7</span>
+            </div>
+          </div>
 
           <p class="secure-payment">
-            🔒 Paiement sécurisé • Garantie blockchain
+            Votre paiement est protégé par notre système de sécurité blockchain
           </p>
         </div>
       </div>
     </div>
 
-    <!-- Conseils et informations -->
+    <!-- Conseils et informations améliorés -->
     <div class="cart-tips">
       <div class="tip-card">
         <h4>💡 Pourquoi acheter chez nous ?</h4>
         <ul>
           <li>✅ Produits certifiés blockchain</li>
-          <li>✅ Producteurs vérifiés</li>
-          <li>✅ Paiements sécurisés</li>
-          <li>✅ Livraison garantie</li>
+          <li>✅ Producteurs vérifiés et notés</li>
+          <li>✅ Paiements sécurisés multicanal</li>
+          <li>✅ Livraison garantie et traçable</li>
+          <li>✅ Frais de port réduits dès 3 articles</li>
         </ul>
       </div>
 
       <div class="tip-card">
-        <h4>🛡️ Garanties incluses</h4>
+        <h4>🛡️ Nos garanties incluses</h4>
         <ul>
           <li>Authenticité vérifiée par QR code</li>
           <li>Traçabilité complète du produit</li>
           <li>Remboursement sous 48h si problème</li>
-          <li>Support client 7j/7</li>
+          <li>Support client 7j/7 par WhatsApp</li>
+          <li>Programme de fidélité avec récompenses</li>
         </ul>
       </div>
 
@@ -364,8 +795,178 @@
           Scannez les QR codes pour vérifier l'authenticité de chaque produit
           avant l'achat.
         </p>
-        <button routerLink="/buyer/scan" class="scan-btn">
-          📱 Tester le scanner
+        <div class="tip-actions">
+          <button routerLink="/buyer/scan" class="scan-btn">
+            📱 Tester le scanner
+          </button>
+          <button (click)="showVerificationInfo()" class="info-btn">
+            ℹ️ En savoir plus
+          </button>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <h4>🌱 Impact environnemental</h4>
+        <div class="impact-stats">
+          <div class="impact-stat">
+            <span class="stat-value">{{calculateCarbonSavings()}} kg</span>
+            <span class="stat-label">CO2 économisé</span>
+          </div>
+          <div class="impact-stat">
+            <span class="stat-value">{{countLocalProducers()}}</span>
+            <span class="stat-label">Producteurs locaux</span>
+          </div>
+          <div class="impact-stat">
+            <span class="stat-value">{{calculateWaterSaved()}} L</span>
+            <span class="stat-label">Eau préservée</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Widget de progression de commande -->
+    <div class="order-progress">
+      <div class="progress-steps">
+        <div class="step active">
+          <div class="step-number">1</div>
+          <div class="step-label">Panier</div>
+        </div>
+        <div class="step" [class.active]="canCheckout()">
+          <div class="step-number">2</div>
+          <div class="step-label">Livraison</div>
+        </div>
+        <div
+          class="step"
+          [class.active]="canCheckout() && selectedPaymentMethod"
+        >
+          <div class="step-number">3</div>
+          <div class="step-label">Paiement</div>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-label">Confirmation</div>
+        </div>
+      </div>
+      <div class="progress-bar">
+        <div
+          class="progress-fill"
+          [style.width.%]="getCheckoutProgress()"
+        ></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal pour le partage du panier -->
+  <div *ngIf="showShareModal" class="modal-overlay" (click)="closeShareModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <h3>📤 Partager mon panier</h3>
+      <p>Partagez votre panier avec vos amis ou votre famille</p>
+      <div class="share-options">
+        <button class="share-option" (click)="shareViaWhatsApp()">
+          <span>📱 WhatsApp</span>
+        </button>
+        <button class="share-option" (click)="shareViaEmail()">
+          <span>📧 Email</span>
+        </button>
+        <button class="share-option" (click)="copyCartLink()">
+          <span>🔗 Copier le lien</span>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="closeShareModal()">
+          Annuler
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal de confirmation de commande -->
+  <div
+    *ngIf="showOrderConfirmation"
+    class="modal-overlay confirmation-modal"
+    (click)="closeOrderConfirmation()"
+  >
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🎉 Commande Confirmée !</h2>
+        <button class="modal-close" (click)="closeOrderConfirmation()">
+          ×
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="confirmation-icon">✅</div>
+        <h3>Merci pour votre commande !</h3>
+
+        <div class="confirmation-details">
+          <div class="detail-item">
+            <span class="detail-label">Numéro de commande</span>
+            <span class="detail-value"
+              >{{orderConfirmationData?.orderNumber}}</span
+            >
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Total</span>
+            <span class="detail-value"
+              >{{formatPrice(orderConfirmationData?.total || 0)}}</span
+            >
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Articles</span>
+            <span class="detail-value"
+              >{{orderConfirmationData?.itemsCount}} produit(s)</span
+            >
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Statut</span>
+            <span class="detail-value status-pending"
+              >En attente de confirmation</span
+            >
+          </div>
+          <div
+            class="detail-item"
+            *ngIf="orderConfirmationData?.estimatedDelivery"
+          >
+            <span class="detail-label">Livraison estimée</span>
+            <span class="detail-value">{{getEstimatedDeliveryTime()}}</span>
+          </div>
+        </div>
+
+        <div class="confirmation-message">
+          <p>Votre commande a été enregistrée avec succès.</p>
+          <p>
+            Vous recevrez une notification lorsque le producteur confirmera
+            votre commande.
+          </p>
+
+          <div
+            class="confirmation-alert"
+            *ngIf="orderConfirmationData?.isFirstOrder"
+          >
+            <strong>🎁 Bienvenue chez Jokko Agro !</strong>
+            <p>
+              Pour votre première commande, vous recevez
+              <strong>100 points de fidélité</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div class="next-steps">
+          <h4>Prochaines étapes :</h4>
+          <ul>
+            <li>📱 Le producteur va confirmer votre commande sous 24h</li>
+            <li>💬 Vous serez notifié par WhatsApp/SMS</li>
+            <li>🔄 Suivez l'avancement dans "Mes commandes"</li>
+            <li>📞 Contactez-nous en cas de question</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeOrderConfirmation()">
+          Continuer mes achats
+        </button>
+        <button class="btn btn-primary" (click)="goToOrders()">
+          📋 Voir mes commandes
         </button>
       </div>
     </div>

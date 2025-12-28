@@ -108,6 +108,7 @@
         <select
           [(ngModel)]="selectedCertification"
           (ngModelChange)="applyFilters()"
+          title="certification"
         >
           <option *ngFor="let cert of certifications" [value]="cert.id">
             {{ cert.name }}
@@ -117,7 +118,7 @@
 
       <div class="filter-group">
         <label>Tri par :</label>
-        <select [(ngModel)]="selectedSort" (ngModelChange)="applyFilters()">
+        <select [(ngModel)]="selectedSort" (ngModelChange)="applyFilters()" title="tri">
           <option *ngFor="let option of sortOptions" [value]="option.id">
             {{ option.name }}
           </option>
@@ -134,6 +135,7 @@
           max="100"
           step="1"
           class="distance-slider"
+          title="distance maximale"
         />
       </div>
 
@@ -151,6 +153,7 @@
             max="100000"
             step="1000"
             class="range-min"
+            title="prix minimum"
           />
           <input
             type="range"
@@ -160,6 +163,7 @@
             max="100000"
             step="1000"
             class="range-max"
+            title="prix maximum"
           />
         </div>
       </div>
