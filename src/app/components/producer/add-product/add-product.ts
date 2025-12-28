@@ -457,12 +457,6 @@ export class AddProductComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    if (!this.mainImagePreview) {
-      this.showNotification('error', 'Veuillez ajouter une image principale');
-      this.goToSection('images');
-      return;
-    }
-
     this.isSubmitting = true;
 
     try {
@@ -473,7 +467,7 @@ export class AddProductComponent implements OnInit, AfterViewInit {
 
       const userData = this.authService.getUserData();
 
-      // Prepare product data
+      // Prepare product data - PAS D'IMAGES
       const productData: any = {
         ...this.productForm.value,
         producerId: user.uid,
@@ -488,8 +482,8 @@ export class AddProductComponent implements OnInit, AfterViewInit {
         totalRating: 0,
         ratingCount: 0,
         isActive: true,
-        images: [],
-        featuredImage: '',
+        images: [], // Tableau vide - pas d'images
+        featuredImage: '', // Image principale vide
         tags: this.productForm.value.certifications || [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -497,12 +491,12 @@ export class AddProductComponent implements OnInit, AfterViewInit {
         expirationDate: this.formatDate(this.productForm.value.expirationDate),
       };
 
-      // Upload images
+      // NE PAS appeler uploadImages() du tout
+      // OU gardez-le mais il retournera un tableau vide
+
+      // Option: Appeler quand même pour la logique
       const imageUrls = await this.uploadImages();
-      if (imageUrls.length > 0) {
-        productData.images = imageUrls;
-        productData.featuredImage = imageUrls[0] || '';
-      }
+      productData.images = imageUrls; // Ce sera un tableau vide
 
       // Save to Firebase
       const result = await this.firebaseService.addProduct(productData);
@@ -533,6 +527,7 @@ export class AddProductComponent implements OnInit, AfterViewInit {
     const incompleteSections = this.sections.filter(
       (s) =>
         !this.isSectionCompleted(s.id) &&
+        s.id !== 'images' && // On exclut images de la vérification
         s.id !== 'certifications' &&
         s.id !== 'additional-details'
     );
@@ -554,34 +549,17 @@ export class AddProductComponent implements OnInit, AfterViewInit {
   }
 
   private async uploadImages(): Promise<string[]> {
-    const imageUrls: string[] = [];
+    console.log("Upload d'images ignoré temporairement");
 
-    try {
-      // Upload main image
-      if (this.mainImageFile) {
-        const mainImageUrl = await this.firebaseService.uploadImage(
-          this.mainImageFile,
-          `products/${Date.now()}_main`
-        );
-        imageUrls.push(mainImageUrl);
-      }
+    // Pour le moment, retourner un tableau vide
+    // OU retourner une URL d'image placeholder si vous voulez une image par défaut
 
-      // Upload additional images
-      for (const [index, image] of this.additionalImages.entries()) {
-        const additionalImageUrl = await this.firebaseService.uploadImage(
-          image.file,
-          `products/${Date.now()}_additional_${index}`
-        );
-        imageUrls.push(additionalImageUrl);
-      }
-    } catch (error) {
-      console.error('Erreur lors du téléchargement des images:', error);
-      throw new Error('Échec du téléchargement des images');
-    }
+    // Option A: Aucune image
+    return [];
 
-    return imageUrls;
+    // Option B: Une image placeholder statique (décommentez si vous voulez une image par défaut)
+    // return ['assets/images/product-placeholder.jpg'];
   }
-
   private formatDate(dateString: string): string | null {
     if (!dateString) return null;
     try {
